@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff } from 'lucide-react';
+import { AuthService } from '@/services/auth.service';
 
 /**
  * Página de Login - Nomos
@@ -14,44 +16,34 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     setIsLoading(true);
     
-    // Simular autenticação
-    setTimeout(() => {
-      setIsLoading(false);
-      // Redirecionar para dashboard
+    try {
+      await AuthService.login(email, password);
+      // Redirecionar para dashboard após login bem-sucedido
       window.location.href = '/dashboard';
-    }, 1000);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login';
+      setError(errorMessage);
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="h-screen bg-background flex">
       {/* Seção Esquerda - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-foreground text-background flex-col justify-between p-12">
-        <div>
-          <h1 className="text-5xl font-bold mb-2">Nomos</h1>
-          <p className="text-lg opacity-90">Gestão Jurídica Profissional</p>
-        </div>
-        
-        <div className="space-y-8">
-          <div>
-            <h3 className="text-2xl font-bold mb-3">Eficiência</h3>
-            <p className="text-base opacity-80">Gerencie clientes e processos com precisão e elegância.</p>
-          </div>
-          <div>
-            <h3 className="text-2xl font-bold mb-3">Segurança</h3>
-            <p className="text-base opacity-80">Seus dados jurídicos protegidos com os mais altos padrões.</p>
-          </div>
-          <div>
-            <h3 className="text-2xl font-bold mb-3">Simplicidade</h3>
-            <p className="text-base opacity-80">Interface intuitiva para profissionais do direito.</p>
-          </div>
+      <div className="hidden lg:flex lg:w-1/2 bg-foreground text-background flex-col items-center p-12 pt-24">
+        <div className="text-center flex flex-col items-center justify-center gap-2">
+          <img src="/white_logo.png" alt="Nomos Logo" className="w-80 h-auto mx-auto" />
+          <h1 className="text-8xl font-bold tracking-wide">Nomos</h1>
         </div>
 
-        <div className="text-sm opacity-70">
+        <div className="text-sm opacity-40 absolute bottom-6">
           <p>&copy; 2024 Nomos. Todos os direitos reservados.</p>
         </div>
       </div>
@@ -70,6 +62,13 @@ export default function Login() {
             <h2 className="text-3xl font-bold text-foreground mb-2">Bem-vindo</h2>
             <p className="text-muted-foreground">Entre com suas credenciais para acessar o sistema</p>
           </div>
+
+          {/* Mensagem de Erro */}
+          {error && (
+            <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
 
           {/* Formulário */}
           <form onSubmit={handleLogin} className="space-y-6">
@@ -121,7 +120,7 @@ export default function Login() {
             {/* Lembrar-se e Recuperar Senha */}
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 border border-border" />
+                <Checkbox />
                 <span className="text-foreground">Lembrar-se de mim</span>
               </label>
               <a href="#" className="text-foreground hover:underline font-medium">
