@@ -144,8 +144,8 @@ export default function Login() {
           {/* Registro */}
           <p className="text-center text-sm text-muted-foreground">
             Não tem uma conta?{' '}
-            <a href="#" className="text-foreground font-medium hover:underline">
-              Solicite acesso
+            <a href="/register" className="text-foreground font-medium hover:underline">
+              Criar conta
             </a>
           </p>
         </div>
