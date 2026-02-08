@@ -1,0 +1,139 @@
+import { useState } from 'react';
+import { useLocation } from 'wouter';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import { InvitationService } from '@/services/invitation.service';
+
+/**
+ * Pagina de Convidar Usuarios - Nomos
+ * Design: Minimalismo Corporativo Refinado
+ * Envio de convite por email
+ */
+
+export default function UsuariosNewPage() {
+  const [, setLocation] = useLocation();
+  const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError('Email e obrigatorio');
+      return;
+    }
+
+    const emailRegex = /\S+@\S+\.\S+/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setError('Email invalido');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await InvitationService.inviteUser({ email: trimmedEmail });
+      setSuccess('Convite enviado com sucesso');
+      setEmail('');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao enviar convite';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="p-8 min-h-full">
+      <div className="max-w-3xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <Button
+            variant="ghost"
+            onClick={() => setLocation('/usuarios')}
+            className="mb-4 -ml-4 hover:bg-muted hover:text-foreground"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Voltar para Usuarios
+          </Button>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Convidar Usuario</h1>
+          <p className="text-muted-foreground">
+            Envie um convite por email para um novo usuario
+          </p>
+        </div>
+
+        {/* Mensagens */}
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {success && (
+          <Alert className="mb-6 bg-green-50 border-green-200">
+            <AlertDescription className="text-green-800">{success}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Conteudo */}
+        <form onSubmit={handleSubmit}>
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Email do Usuario</CardTitle>
+              <CardDescription>
+                O usuario recebera um email com o convite
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <label htmlFor="email" className="block text-sm font-medium text-foreground">
+                  Email
+                </label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="usuario@exemplo.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Botoes de Acao */}
+          <div className="flex items-center justify-end gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setLocation('/usuarios')}
+              className="hover:bg-muted"
+              disabled={isLoading}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                'Enviar Convite'
+              )}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

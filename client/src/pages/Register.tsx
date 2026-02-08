@@ -14,7 +14,6 @@ import { UserService } from '@/services/user.service';
 export default function Register() {
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -42,7 +41,6 @@ export default function Register() {
       if (withOrganization) {
         await UserService.registerWithOrganization({
           email,
-          username,
           password,
           full_name: fullName,
           organization_name: organizationName,
@@ -51,7 +49,6 @@ export default function Register() {
       } else {
         await UserService.register({
           email,
-          username,
           password,
           full_name: fullName,
           organization_id: null,
@@ -124,22 +121,6 @@ export default function Register() {
                 placeholder="Seu nome completo"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="input-refined"
-                required
-              />
-            </div>
-
-            {/* Username */}
-            <div className="space-y-2">
-              <label htmlFor="username" className="block text-sm font-medium text-foreground">
-                Usuário
-              </label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="usuario123"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
                 className="input-refined"
                 required
               />

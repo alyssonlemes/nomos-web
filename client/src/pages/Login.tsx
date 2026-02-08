@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff } from 'lucide-react';
 import { AuthService } from '@/services/auth.service';
+import { UserService } from '@/services/user.service';
 
 /**
  * Página de Login - Nomos
@@ -25,8 +26,17 @@ export default function Login() {
     
     try {
       await AuthService.login(email, password);
-      // Redirecionar para dashboard após login bem-sucedido
-      window.location.href = '/dashboard';
+      // Obter dados do usuário autenticado
+      const user = await UserService.getMe();
+      
+      // Verificar se usuário tem organização
+      if (!user.organization_id) {
+        // Redirecionar para onboarding se não houver organização
+        window.location.href = '/onboarding-organization';
+      } else {
+        // Redirecionar para home após login bem-sucedido
+        window.location.href = '/home';
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login';
       setError(errorMessage);

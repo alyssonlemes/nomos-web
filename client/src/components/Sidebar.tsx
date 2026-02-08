@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Menu, X, ChevronDown, Users, FileText, Settings, LogOut, Home, Grid3x3 } from 'lucide-react';
+import { useLocation } from 'wouter';
+import { Menu, X, ChevronDown, Users, FileText, Settings, LogOut, Grid3x3, UserCog } from 'lucide-react';
+import { AuthService } from '@/services/auth.service';
 
 /**
  * Componente Sidebar - Nomos
@@ -21,12 +23,8 @@ interface SubMenuItem {
   href: string;
 }
 
-interface SidebarProps {
-  activeItem?: string;
-  onNavigate?: (item: string) => void;
-}
-
-export default function Sidebar({ activeItem = 'clientes', onNavigate }: SidebarProps) {
+export default function Sidebar() {
+  const [location, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<string[]>(['clientes']);
@@ -36,26 +34,33 @@ export default function Sidebar({ activeItem = 'clientes', onNavigate }: Sidebar
       id: 'home',
       label: 'Home',
       icon: <Grid3x3 className="w-5 h-5" />,
-      href: '/dashboard',
+      href: '/home',
     },
     {
       id: 'clientes',
       label: 'Clientes',
       icon: <Users className="w-5 h-5" />,
-      href: '/dashboard/clientes',
+      href: '/clientes',
       submenu: [
-        { id: 'clientes-lista', label: 'Lista de Clientes', href: '/dashboard/clientes' },
-        { id: 'clientes-novo', label: 'Novo Cliente', href: '/dashboard/clientes/novo' },
+        { id: 'clientes-lista', label: 'Lista de Clientes', href: '/clientes' },
       ],
     },
     {
       id: 'processos',
       label: 'Processos',
       icon: <FileText className="w-5 h-5" />,
-      href: '/dashboard/processos',
+      href: '/processos',
       submenu: [
-        { id: 'processos-lista', label: 'Lista de Processos', href: '/dashboard/processos' },
-        { id: 'processos-novo', label: 'Novo Processo', href: '/dashboard/processos/novo' },
+        { id: 'processos-lista', label: 'Lista de Processos', href: '/processos' },
+      ],
+    },
+    {
+      id: 'usuarios',
+      label: 'Usuários',
+      icon: <UserCog className="w-5 h-5" />,
+      href: '/usuarios',
+      submenu: [
+        { id: 'usuarios-lista', label: 'Lista de Funcionários', href: '/usuarios' },
       ],
     },
   ];
@@ -65,7 +70,7 @@ export default function Sidebar({ activeItem = 'clientes', onNavigate }: Sidebar
       id: 'configuracoes',
       label: 'Configurações',
       icon: <Settings className="w-5 h-5" />,
-      href: '/dashboard/configuracoes',
+      href: '/configuracoes',
     },
     {
       id: 'sair',
@@ -83,12 +88,27 @@ export default function Sidebar({ activeItem = 'clientes', onNavigate }: Sidebar
     );
   };
 
-  const handleNavigate = (itemId: string) => {
-    onNavigate?.(itemId);
+  const handleNavigate = (href: string) => {
+    if (href === '/login') {
+      AuthService.logout();
+    }
+    setLocation(href);
     setIsMobileOpen(false);
   };
 
   const isMenuExpanded = (menuId: string) => expandedMenus.includes(menuId);
+
+  // Determinar o item ativo baseado na localização atual
+  const getActiveItem = () => {
+    if (location === '/home') return 'home';
+    if (location.startsWith('/clientes')) return 'clientes';
+    if (location.startsWith('/processos')) return 'processos';
+    if (location.startsWith('/usuarios')) return 'usuarios';
+    if (location.startsWith('/profile')) return 'perfil';
+    return '';
+  };
+
+  const activeItem = getActiveItem();
 
   return (
     <>
@@ -150,8 +170,8 @@ export default function Sidebar({ activeItem = 'clientes', onNavigate }: Sidebar
                   onClick={() => {
                     if (hasSubmenu) {
                       toggleMenu(item.id);
-                    } else {
-                      handleNavigate(item.id);
+                    } else if (item.href) {
+                      handleNavigate(item.href);
                     }
                   }}
                   className={`
@@ -185,21 +205,17 @@ export default function Sidebar({ activeItem = 'clientes', onNavigate }: Sidebar
                 {isOpen && hasSubmenu && isExpanded && item.submenu && (
                   <div className="mt-2 ml-4 space-y-2 border-l-2 border-sidebar-border pl-3">
                     {item.submenu!.map((subitem) => (
-                      <a
+                      <button
                         key={subitem.id}
-                        href={subitem.href}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleNavigate(subitem.id);
-                        }}
+                        onClick={() => handleNavigate(subitem.href)}
                         className="
-                          block px-3 py-2 text-xs font-medium
+                          w-full text-left block px-3 py-2 text-xs font-medium
                           text-sidebar-foreground hover:text-sidebar-accent-foreground
                           hover:bg-muted rounded-md transition-colors
                         "
                       >
                         {subitem.label}
-                      </a>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -216,7 +232,7 @@ export default function Sidebar({ activeItem = 'clientes', onNavigate }: Sidebar
             return (
               <button
                 key={item.id}
-                onClick={() => handleNavigate(item.id)}
+                onClick={() => item.href && handleNavigate(item.href)}
                 className={`
                   w-full flex items-center gap-3 px-4 py-3 rounded-lg
                   transition-all duration-200 font-medium text-sm
@@ -236,9 +252,6 @@ export default function Sidebar({ activeItem = 'clientes', onNavigate }: Sidebar
           })}
         </div>
       </aside>
-
-      {/* Espaçador para layout com sidebar fixa */}
-      <div className={`hidden lg:block ${isOpen ? 'w-72' : 'w-24'} transition-all duration-300`} />
     </>
   );
 }
