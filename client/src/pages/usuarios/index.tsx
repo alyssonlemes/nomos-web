@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { UserService, UserResponse } from '@/services/user.service';
+import { toast } from 'sonner';
 
 /**
  * Pagina de Usuarios/Funcionarios - Nomos
@@ -64,13 +65,14 @@ export default function UsuariosListPage() {
     setError('');
 
     try {
-      // TODO: Implementar rota de exclusão no backend
-      // await UserService.deleteUser(userToDelete.id);
-      console.log('Excluir usuário:', userToDelete.id);
+      await UserService.unlinkOrganization(userToDelete.id);
+      toast.success('Usuário desvinculado da organização.');
+      console.log('Usuário desvinculado da organização:', userToDelete.id);
       setUserToDelete(null);
       loadUsers();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao excluir usuário';
+      toast.error(errorMessage);
       setError(errorMessage);
     }
   };

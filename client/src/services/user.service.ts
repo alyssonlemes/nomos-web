@@ -212,4 +212,25 @@ export class UserService {
       throw new Error('Erro de conexão com o servidor');
     }
   }
+
+  static async unlinkOrganization(userId: number): Promise<void> {
+    try {
+      const response = await AuthService.authenticatedFetch(
+        `${API_BASE_URL}/api/v1/users/${userId}/unlink-organization`,
+        { method: 'POST' }
+      );
+
+      if (!response.ok) {
+        const error: ErrorResponse = await response.json();
+        throw new Error(error.detail || 'Erro ao desvincular usuário da organização');
+      }
+
+      return;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Erro de conexão com o servidor');
+    }
+  }
 }

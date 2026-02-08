@@ -6,10 +6,10 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import Layout from "./components/Layout";
 import { TokenExpirationAlert } from "./components/TokenExpirationAlert";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Login from "./pages/Login";
+import Login from "./pages/auth/Login";
 import Dashboard from "./pages/Dashboard";
-import Register from "./pages/Register";
-import Profile from "./pages/Profile";
+import Register from "./pages/auth/Register";
+import Profile from "./pages/profile/Profile";
 import ClientsList from "./pages/clients/index";
 import ClientsNew from "./pages/clients/new";
 import ClientsEdit from "./pages/clients/edit";
@@ -18,7 +18,8 @@ import UsuariosList from "./pages/usuarios/index";
 import UsuariosNew from "./pages/usuarios/new";
 import UsuariosEdit from "./pages/usuarios/edit";
 import Configuracoes from "./pages/Configuracoes";
-import OnboardingOrganization from "./pages/OnboardingOrganization";
+import OnboardingOrganization from "./pages/profile/OnboardingOrganization";
+import Jurimetria from "./pages/Jurimetria";
 import { UserService } from "./services/user.service";
 
 /**
@@ -78,6 +79,13 @@ function Router() {
         <ProtectedRoute>
           <Layout>
             <Processos />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path={"/jurimetria"}>
+        <ProtectedRoute>
+          <Layout>
+            <Jurimetria />
           </Layout>
         </ProtectedRoute>
       </Route>

@@ -16,6 +16,7 @@ import { InvitationService } from '@/services/invitation.service';
 export default function UsuariosNewPage() {
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState<'admin' | 'member' | 'viewer'>('member');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -39,7 +40,7 @@ export default function UsuariosNewPage() {
 
     try {
       setIsLoading(true);
-      await InvitationService.inviteUser({ email: trimmedEmail });
+      await InvitationService.inviteUser({ email: trimmedEmail, role });
       setSuccess('Convite enviado com sucesso');
       setEmail('');
     } catch (err) {
@@ -106,6 +107,23 @@ export default function UsuariosNewPage() {
                   disabled={isLoading}
                   required
                 />
+
+                <div className="space-y-2 mt-4">
+                  <label htmlFor="role" className="block text-sm font-medium text-foreground">
+                    Papel
+                  </label>
+                  <select
+                    id="role"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as 'admin' | 'member' | 'viewer')}
+                    disabled={isLoading}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="admin">Administrador</option>
+                    <option value="member">Membro</option>
+                    <option value="viewer">Visualizador</option>
+                  </select>
+                </div>
               </div>
             </CardContent>
           </Card>

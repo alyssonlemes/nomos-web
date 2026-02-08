@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
-import { Menu, X, ChevronDown, Users, FileText, Settings, LogOut, Grid3x3, UserCog } from 'lucide-react';
+import { Menu, X, ChevronDown, Users, FileText, Settings, LogOut, Grid3x3, UserCog, Bot } from 'lucide-react';
 import { AuthService } from '@/services/auth.service';
 
 /**
@@ -55,6 +55,12 @@ export default function Sidebar() {
       ],
     },
     {
+      id: 'jurimetria',
+      label: 'Jurimetria',
+      icon: <Bot className="w-5 h-5" />,
+      href: '/jurimetria',
+    },
+    {
       id: 'usuarios',
       label: 'Usuários',
       icon: <UserCog className="w-5 h-5" />,
@@ -103,6 +109,7 @@ export default function Sidebar() {
     if (location === '/home') return 'home';
     if (location.startsWith('/clientes')) return 'clientes';
     if (location.startsWith('/processos')) return 'processos';
+    if (location.startsWith('/jurimetria')) return 'jurimetria';
     if (location.startsWith('/usuarios')) return 'usuarios';
     if (location.startsWith('/profile')) return 'perfil';
     return '';
