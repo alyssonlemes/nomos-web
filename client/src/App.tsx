@@ -7,19 +7,19 @@ import Layout from "./components/Layout";
 import { TokenExpirationAlert } from "./components/TokenExpirationAlert";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Login from "./pages/auth/Login";
-import Dashboard from "./pages/Dashboard";
+import Dashboard from "./pages/dashboard";
 import Register from "./pages/auth/Register";
 import Profile from "./pages/profile/Profile";
 import ClientsList from "./pages/clients/index";
 import ClientsNew from "./pages/clients/new";
 import ClientsEdit from "./pages/clients/edit";
-import Processos from "./pages/Processos";
-import UsuariosList from "./pages/usuarios/index";
-import UsuariosNew from "./pages/usuarios/new";
-import UsuariosEdit from "./pages/usuarios/edit";
+import Processos from "./pages/legal-actions";
+import UsuariosList from "./pages/users/index";
+import UsuariosNew from "./pages/users/new";
+import UsuariosEdit from "./pages/users/edit";
 import Configuracoes from "./pages/Configuracoes";
 import OnboardingOrganization from "./pages/profile/OnboardingOrganization";
-import Jurimetria from "./pages/Jurimetria";
+import Jurimetria from "./pages/jurimetry";
 import { UserService } from "./services/user.service";
 
 /**
