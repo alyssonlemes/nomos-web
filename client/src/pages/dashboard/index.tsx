@@ -1,7 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, FileText, TrendingUp, Calendar } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Users, FileText, TrendingUp, Briefcase } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { DashboardService, DashboardStats } from '@/services/dashboard.service';
+import { formatLegalStatus, formatClientStatus, CLIENT_STATUS_KEYS } from '@/utils/formats';
+
+/** Cores minimalistas (sem branco): primary + tons do tema */
+const PIE_COLORS = [
+  'var(--color-primary)',
+  'var(--color-chart-2)',
+  'var(--color-chart-3)',
+  'var(--color-chart-4)',
+];
 
 /**
  * Página Dashboard/Home - Nomos
@@ -33,6 +44,90 @@ export default function Dashboard() {
     };
   }, []);
 
+  if (error) {
+    return (
+      <div className="min-h-full p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
+            <p className="text-muted-foreground">Visão geral da sua organização</p>
+          </div>
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+            {error}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-full p-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Header skeleton */}
+          <div className="mb-8">
+            <Skeleton className="h-9 w-48 mb-2" />
+            <Skeleton className="h-5 w-72" />
+          </div>
+
+          {/* Grid de cards skeleton */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Card key={i}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-4 w-4 rounded" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-16 mb-2" />
+                  <Skeleton className="h-3 w-24" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Área inferior skeleton */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-6 w-40 mb-2" />
+                <Skeleton className="h-4 w-56" />
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px] p-4 space-y-3">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <Skeleton className="h-3 w-32" />
+                      <Skeleton className="flex-1 h-3" />
+                      <Skeleton className="h-4 w-8" />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-6 w-40 mb-2" />
+                <Skeleton className="h-4 w-56" />
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px] p-4 space-y-3">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <Skeleton className="h-3 w-32" />
+                      <Skeleton className="flex-1 h-3" />
+                      <Skeleton className="h-4 w-8" />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-full p-8">
       <div className="max-w-7xl mx-auto">
@@ -45,7 +140,7 @@ export default function Dashboard() {
         </div>
 
         {/* Grid de Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           {/* Card 1 - Total de Clientes */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -74,32 +169,48 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Card 3 - Taxa de Crescimento */}
+          {/* Card 3 - Novos clientes (30 dias) */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Crescimento</CardTitle>
+              <CardTitle className="text-sm font-medium">Clientes novos</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {stats ? `${Math.round((stats.recent_clients_30d / Math.max(1, stats.total_clients)) * 100)}%` : '—'}
+                {stats != null ? stats.recent_clients_30d : '—'}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Novos clientes nos últimos 30 dias
+                Nos últimos 30 dias
               </p>
             </CardContent>
           </Card>
 
-          {/* Card 4 - Prazos Próximos */}
+          {/* Card 4 - Total de funcionários */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Prazos Próximos</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Funcionários</CardTitle>
+              <Briefcase className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats ? stats.total_users : '—'}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 Usuários na organização
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Card 5 - Ações recentes (30 dias) */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Ações novas</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {stats != null ? stats.recent_actions_30d : '—'}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Processos nos últimos 30 dias
               </p>
             </CardContent>
           </Card>
@@ -122,7 +233,7 @@ export default function Dashboard() {
                         const width = Math.round((count / max) * 100);
                         return (
                           <div key={status} className="flex items-center gap-3">
-                            <div className="w-32 text-xs text-muted-foreground capitalize">{status.replace('_', ' ')}</div>
+                            <div className="w-32 text-xs text-muted-foreground">{formatLegalStatus(status)}</div>
                             <div className="flex-1 bg-muted/30 rounded h-3 overflow-hidden">
                               <div className="h-3 bg-primary" style={{ width: `${width}%` }} />
                             </div>
@@ -140,37 +251,90 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Gráfico de Atividade Mensal */}
+          {/* Gráfico de pizza minimalista – Clientes por Status */}
           <Card>
             <CardHeader>
-              <CardTitle>Atividade Mensal</CardTitle>
-              <CardDescription>Novos processos e clientes por mês</CardDescription>
+              <CardTitle>Clientes por Status</CardTitle>
+              <CardDescription>Distribuição dos clientes por status</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="h-[300px] p-6 flex items-center justify-center">
-                  {stats ? (
-                    <div className="w-full max-w-md">
-                      <div className="flex items-end gap-6">
-                        <div className="flex-1 text-center">
-                          <div className="h-40 flex items-end justify-center">
-                            <div className="w-16 bg-accent rounded-t" style={{ height: `${Math.min(100, stats.recent_clients_30d * 5)}%` }} />
-                          </div>
-                          <div className="text-sm text-muted-foreground mt-2">Clientes (30d): {stats.recent_clients_30d}</div>
+              <div className="h-[300px] w-full flex flex-col">
+                {stats && Object.keys(stats.clients_by_status || {}).length > 0 ? (
+                  (() => {
+                    const total = Object.values(stats.clients_by_status).reduce((a, b) => a + b, 0);
+                    const pieData = Object.entries(stats.clients_by_status).map(([status, count]) => ({
+                      name: formatClientStatus(status),
+                      value: count,
+                      total,
+                    }));
+                    return (
+                      <>
+                        <div className="flex-1 min-h-0">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                              <Pie
+                                data={pieData}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                innerRadius="55%"
+                                outerRadius="85%"
+                                stroke="none"
+                                labelLine={false}
+                                label={false}
+                              >
+                                {pieData.map((_, i) => (
+                                  <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: 'var(--color-card)',
+                                  border: '1px solid var(--color-border)',
+                                  borderRadius: 'var(--radius)',
+                                  fontSize: '12px',
+                                }}
+                                formatter={(value: number, name: string, item: { payload?: { total?: number } }) => {
+                                  const t = item.payload?.total ?? 0;
+                                  const pct = t > 0 ? Math.round((Number(value) / t) * 100) : 0;
+                                  return [`${value} (${pct}%)`, name];
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
                         </div>
-                        <div className="flex-1 text-center">
-                          <div className="h-40 flex items-end justify-center">
-                            <div className="w-16 bg-secondary rounded-t" style={{ height: `${Math.min(100, stats.recent_actions_30d * 5)}%` }} />
-                          </div>
-                          <div className="text-sm text-muted-foreground mt-2">Ações (30d): {stats.recent_actions_30d}</div>
+                        <div
+                          className="flex flex-wrap justify-center gap-x-5 gap-y-1 pt-3 mt-1 border-t border-border/50"
+                          role="legend"
+                        >
+                          {pieData.map((entry, i) => (
+                            <div
+                              key={entry.name}
+                              className="flex items-center gap-2 text-xs text-muted-foreground"
+                            >
+                              <span
+                                className="rounded-full w-2 h-2 shrink-0"
+                                style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
+                                aria-hidden
+                              />
+                              <span>{entry.name}</span>
+                              <span className="tabular-nums font-medium text-foreground">{entry.value}</span>
+                            </div>
+                          ))}
                         </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="h-full flex items-center justify-center border-2 border-dashed border-muted rounded-lg">
-                      <p className="text-muted-foreground">Sem dados mensais</p>
-                    </div>
-                  )}
-                </div>
+                      </>
+                    );
+                  })()
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center gap-1 border-2 border-dashed border-muted rounded-lg">
+                    <p className="text-muted-foreground">Nenhum cliente por status</p>
+                    <p className="text-xs text-muted-foreground/80">
+                      {CLIENT_STATUS_KEYS.map(formatClientStatus).join(', ')}
+                    </p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>

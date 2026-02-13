@@ -8,16 +8,16 @@ import { UserService, UserResponse } from '@/services/user.service';
 import { Badge } from '@/components/ui/badge';
 
 /**
- * Pagina de Visualizacao de Usuario - Nomos
+ * Página de Visualização de Usuário - Nomos
  * Design: Minimalismo Corporativo Refinado
- * Exibe informacoes detalhadas do usuario
+ * Exibe informações detalhadas do usuário
  */
 
-export default function UsuariosEditPage() {
+export default function UsuariosViewPage() {
   const [, setLocation] = useLocation();
   const params = useParams();
   const userId = params.id ? parseInt(params.id) : null;
-  
+
   const [user, setUser] = useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -33,7 +33,7 @@ export default function UsuariosEditPage() {
 
   const loadUser = async () => {
     if (!userId) return;
-    
+
     try {
       setIsLoading(true);
       setError('');
@@ -58,7 +58,7 @@ export default function UsuariosEditPage() {
             className="mb-4 -ml-4 hover:bg-muted hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Voltar para Usuarios
+            Voltar para Usuários
           </Button>
           <h1 className="text-3xl font-bold text-foreground mb-2">
             {isLoading ? 'Carregando...' : user?.full_name || 'Usuário'}
@@ -82,7 +82,7 @@ export default function UsuariosEditPage() {
           </div>
         )}
 
-        {/* Conteudo */}
+        {/* Conteúdo */}
         {!isLoading && user && (
           <>
             <Card className="mb-6">
@@ -111,7 +111,7 @@ export default function UsuariosEditPage() {
                     <p className="text-base font-medium text-foreground">{user.full_name}</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start gap-3">
                   <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
@@ -119,7 +119,7 @@ export default function UsuariosEditPage() {
                     <p className="text-base text-foreground">{user.email}</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start gap-3">
                   <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
@@ -176,8 +176,7 @@ export default function UsuariosEditPage() {
               </CardContent>
             </Card>
 
-            {/* Botoes de Acao */}
-            <div className="flex items-center justify-end gap-4">
+            <div className="flex justify-end">
               <Button
                 type="button"
                 variant="outline"
@@ -185,9 +184,6 @@ export default function UsuariosEditPage() {
                 className="hover:bg-muted"
               >
                 Voltar
-              </Button>
-              <Button type="button" disabled>
-                Editar Usuário
               </Button>
             </div>
           </>

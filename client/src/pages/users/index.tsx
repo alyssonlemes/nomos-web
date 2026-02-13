@@ -123,7 +123,7 @@ export default function UsuariosListPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setLocation(`/usuarios/${user.id}/editar`)}
+                onClick={() => setLocation(`/usuarios/${user.id}`)}
                 className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
               >
                 <Eye className="h-4 w-4" />

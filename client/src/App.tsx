@@ -14,9 +14,12 @@ import ClientsList from "./pages/clients/index";
 import ClientsNew from "./pages/clients/new";
 import ClientsEdit from "./pages/clients/edit";
 import Processos from "./pages/legal-actions";
+import ProcessosNew from "./pages/legal-actions/new";
+import ProcessosEdit from "./pages/legal-actions/edit";
+import ProcessosView from "./pages/legal-actions/view";
 import UsuariosList from "./pages/users/index";
 import UsuariosNew from "./pages/users/new";
-import UsuariosEdit from "./pages/users/edit";
+import UsuariosView from "./pages/users/view";
 import Configuracoes from "./pages/Configuracoes";
 import OnboardingOrganization from "./pages/profile/OnboardingOrganization";
 import Jurimetria from "./pages/jurimetry";
@@ -82,6 +85,27 @@ function Router() {
           </Layout>
         </ProtectedRoute>
       </Route>
+      <Route path="/processos/novo">
+        <ProtectedRoute>
+          <Layout>
+            <ProcessosNew />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/processos/:id/editar">
+        <ProtectedRoute>
+          <Layout>
+            <ProcessosEdit />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/processos/:id">
+        <ProtectedRoute>
+          <Layout>
+            <ProcessosView />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
       <Route path={"/jurimetria"}>
         <ProtectedRoute>
           <Layout>
@@ -103,10 +127,10 @@ function Router() {
           </Layout>
         </ProtectedRoute>
       </Route>
-      <Route path={"/usuarios/:id/editar"}>
+      <Route path={"/usuarios/:id"}>
         <ProtectedRoute>
           <Layout>
-            <UsuariosEdit />
+            <UsuariosView />
           </Layout>
         </ProtectedRoute>
       </Route>

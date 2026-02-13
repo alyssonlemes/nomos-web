@@ -3,15 +3,18 @@ import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable, Column } from '@/components/ui/data-table';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Eye, Plus } from 'lucide-react';
-import { LegalActionService, LegalActionClient } from '@/services/legal-action.service';
+import { AlertCircle, Loader2, Eye, Plus, Edit, Trash2 } from 'lucide-react';
+import { LegalActionService, LegalAction } from '@/services/legal-action.service';
+import { formatLegalStatus, formatActionType } from '@/utils/formats';
 
 export default function ProcessosPage() {
   const [, setLocation] = useLocation();
-  const [actions, setActions] = useState<LegalActionClient[]>([]);
+  const [actions, setActions] = useState<LegalAction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -42,7 +45,20 @@ export default function ProcessosPage() {
     if (page >= 1 && page <= totalPages) setCurrentPage(page);
   };
 
-  const columns: Column<LegalActionClient>[] = [
+  const handleDelete = async (id: number, action: LegalAction) => {
+    try {
+      setError('');
+      setSuccess('');
+      await LegalActionService.deleteLegalAction(id);
+      setSuccess('Processo excluído com sucesso!');
+      loadActions();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao excluir processo';
+      setError(errorMessage);
+    }
+  };
+
+  const columns: Column<LegalAction>[] = [
     {
       header: 'Número',
       accessorKey: 'number',
@@ -55,16 +71,16 @@ export default function ProcessosPage() {
       cell: (row) => row.title || '-',
     },
     {
-      header: 'Cliente',
-      accessorKey: 'client_name',
-      cell: (row) => row.client_name || '-',
+      header: 'Tipo',
+      accessorKey: 'action_type',
+      cell: (row) => formatActionType(row.action_type),
     },
     {
       header: 'Status',
-      accessorKey: 'status',
+      accessorKey: 'legal_status',
       cell: (row) => (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
-          {row.status || '-'}
+          {formatLegalStatus(row.legal_status)}
         </span>
       ),
     },
@@ -80,11 +96,38 @@ export default function ProcessosPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setLocation(`/legal-actions/${row.id}`)}
+            onClick={() => setLocation(`/processos/${row.id}/editar`)}
             className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+            title="Editar"
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setLocation(`/processos/${row.id}`)}
+            className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+            title="Visualizar"
           >
             <Eye className="h-4 w-4" />
           </Button>
+          <ConfirmDialog
+            title="Excluir processo"
+            description={`Tem certeza que deseja excluir o processo "${row.number || row.title}"? Essa acao nao pode ser desfeita.`}
+            confirmText="Excluir"
+            cancelText="Cancelar"
+            onConfirm={() => handleDelete(row.id, row)}
+            trigger={
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => e.stopPropagation()}
+                className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            }
+          />
         </div>
       ),
       headerClassName: 'text-right',
@@ -100,15 +143,23 @@ export default function ProcessosPage() {
             <h1 className="text-3xl font-bold text-foreground mb-2">Processos</h1>
             <p className="text-muted-foreground">Gerencie as ações jurídicas da sua organização</p>
           </div>
-          <Button className="gap-2" onClick={() => setLocation('/legal-actions/new')}>
+          <Button className="gap-2" onClick={() => setLocation('/processos/novo')}>
             <Plus className="w-4 h-4" />
             Novo Processo
           </Button>
         </div>
 
+        {/* Mensagens */}
         {error && (
           <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {success && (
+          <Alert className="mb-6 bg-green-50 border-green-200">
+            <AlertDescription className="text-green-800">{success}</AlertDescription>
           </Alert>
         )}
 
@@ -127,7 +178,7 @@ export default function ProcessosPage() {
             ) : actions.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground mb-4">Nenhum processo encontrado</p>
-                <Button variant="outline" onClick={() => setLocation('/legal-actions/new')}>
+                <Button variant="outline" onClick={() => setLocation('/processos/novo')} className="hover:bg-muted hover:text-foreground">
                   <Plus className="w-4 h-4 mr-2" />
                   Adicionar Primeiro Processo
                 </Button>

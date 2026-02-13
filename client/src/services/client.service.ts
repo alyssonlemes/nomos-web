@@ -61,11 +61,15 @@ export interface UpdateClientData {
 
 export class ClientService {
   /**
-   * Buscar clientes com paginação
+   * Buscar clientes com paginação e busca opcional
    */
-  static async getClients(skip = 0, limit = 10): Promise<ClientsResponse> {
+  static async getClients(skip = 0, limit = 100, search?: string): Promise<ClientsResponse> {
+    const params = new URLSearchParams();
+    params.set('skip', String(skip));
+    params.set('limit', String(limit));
+    if (search && search.trim()) params.set('search', search.trim());
     const response = await AuthService.authenticatedFetch(
-      `${API_BASE_URL}/api/v1/clients?skip=${skip}&limit=${limit}`,
+      `${API_BASE_URL}/api/v1/clients?${params.toString()}`,
       { method: 'GET' }
     );
 
@@ -74,7 +78,13 @@ export class ClientService {
       throw new Error(error.message || 'Erro ao buscar clientes');
     }
 
-    return response.json();
+    const data = await response.json();
+    return {
+      clients: data.clients ?? [],
+      total: data.total ?? 0,
+      skip: data.skip ?? skip,
+      limit: data.limit ?? limit,
+    };
   }
 
   /**
@@ -107,8 +117,9 @@ export class ClientService {
     );
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Erro ao criar cliente');
+      const error = await response.json().catch(() => ({}));
+      const message = error.detail ?? error.message ?? 'Erro ao criar cliente';
+      throw new Error(typeof message === 'string' ? message : JSON.stringify(message));
     }
 
     return response.json();
@@ -127,8 +138,9 @@ export class ClientService {
     );
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Erro ao atualizar cliente');
+      const error = await response.json().catch(() => ({}));
+      const message = error.detail ?? error.message ?? 'Erro ao atualizar cliente';
+      throw new Error(typeof message === 'string' ? message : JSON.stringify(message));
     }
 
     return response.json();

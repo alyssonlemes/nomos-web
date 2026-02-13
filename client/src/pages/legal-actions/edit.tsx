@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { useLocation } from 'wouter';
+import { useState, useEffect, useCallback } from 'react';
+import { useLocation, useRoute } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,18 +8,33 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { AlertCircle, Loader2, ArrowLeft, ChevronsUpDown } from 'lucide-react';
-import { LegalActionService, LegalActionType, LegalStatus } from '@/services/legal-action.service';
+import { LegalActionService, LegalAction, LegalActionType, LegalStatus } from '@/services/legal-action.service';
 import { formatLegalStatus, formatActionType } from '@/utils/formats';
 import { ClientService, Client } from '@/services/client.service';
-import { SelectField } from '../../components/ui/select-field';
+import { SelectField } from '@/components/ui/select-field';
 import { cn } from '@/lib/utils';
 
 const CLIENT_PAGE_SIZE = 100;
 
-export default function ProcessoNovoPage() {
+export default function ProcessoEditPage() {
+  const [, params] = useRoute('/processos/:id/editar');
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingAction, setIsLoadingAction] = useState(true);
   const [error, setError] = useState('');
+  const [action, setAction] = useState<LegalAction | null>(null);
+
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    client_id: '',
+    action_type: 'civil' as LegalActionType,
+    legal_status: 'pre_trial' as LegalStatus,
+    court_name: '',
+    filing_date: '',
+    closing_date: '',
+  });
+
   const [clients, setClients] = useState<Client[]>([]);
   const [clientSearch, setClientSearch] = useState('');
   const [loadingClients, setLoadingClients] = useState(false);
@@ -27,16 +42,56 @@ export default function ProcessoNovoPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
-  const [form, setForm] = useState({
-    number: '',
-    title: '',
-    client_id: '',
-    action_type: 'civil',
-    description: '',
-    legal_status: 'pre_trial',
-    court_name: '',
-    filing_date: '',
-  });
+  const actionId = params?.id ? parseInt(params.id) : null;
+
+  useEffect(() => {
+    if (actionId) {
+      loadAction(actionId);
+    }
+  }, [actionId]);
+
+  const loadAction = async (id: number) => {
+    try {
+      setIsLoadingAction(true);
+      setError('');
+      const data = await LegalActionService.getLegalActionById(id);
+      setAction(data);
+
+      // Preencher formulário com dados atuais
+      setForm({
+        title: data.title || '',
+        description: data.description || '',
+        client_id: String(data.client_id ?? ''),
+        action_type: data.action_type || LegalActionType.CIVIL,
+        legal_status: data.legal_status || LegalStatus.PRE_TRIAL,
+        court_name: data.court_name || '',
+        filing_date: data.filing_date ? data.filing_date.split('T')[0] : '',
+        closing_date: data.closing_date ? data.closing_date.split('T')[0] : '',
+      });
+
+      // A API retorna só client_id; buscar cliente para exibir o nome
+      if (data.client_id) {
+        try {
+          const client = await ClientService.getClientById(data.client_id);
+          setSelectedClient(client);
+        } catch {
+          setSelectedClient({
+            id: data.client_id,
+            name: '',
+            email: '',
+            created_at: data.created_at ?? '',
+          } as Client);
+        }
+      } else {
+        setSelectedClient(null);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar processo';
+      setError(errorMessage);
+    } finally {
+      setIsLoadingAction(false);
+    }
+  };
 
   const fetchClients = useCallback(async (search: string) => {
     if (!search.trim()) {
@@ -68,15 +123,10 @@ export default function ProcessoNovoPage() {
   const handlePopoverOpenChange = (open: boolean) => {
     setClientOpen(open);
     if (!open) {
-      // Limpar busca e lista quando fechar
       setClientSearch('');
       setClients([]);
       setHasSearched(false);
     }
-  };
-
-  const handleChange = (field: keyof typeof form, value: string) => {
-    setForm(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSelectClient = (client: Client) => {
@@ -85,37 +135,95 @@ export default function ProcessoNovoPage() {
     setClientOpen(false);
   };
 
+  const handleChange = (field: keyof typeof form, value: string) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
+    if (!actionId) {
+      setError('ID do processo inválido');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      if (!form.number || form.number.length < 3) throw new Error('Número deve ter no mínimo 3 caracteres');
-      if (!form.title || form.title.length < 3) throw new Error('Título deve ter no mínimo 3 caracteres');
-      const clientId = Number(form.client_id);
-      if (!clientId || Number.isNaN(clientId)) throw new Error('Selecione um cliente');
+      // Validações
+      if (!form.title || form.title.length < 3) {
+        throw new Error('Título deve ter no mínimo 3 caracteres');
+      }
 
-      const payload: any = {
-        number: form.number,
-        title: form.title,
-        client_id: clientId,
-        action_type: form.action_type,
-      };
+      // Preparar dados para atualização (apenas campos permitidos)
+      const payload: any = {};
 
-      if (form.description) payload.description = form.description;
-      if (form.legal_status) payload.legal_status = form.legal_status;
-      if (form.court_name) payload.court_name = form.court_name;
-      if (form.filing_date) payload.filing_date = form.filing_date;
+      if (form.title !== action?.title) {
+        payload.title = form.title;
+      }
+      if (form.description !== (action?.description || '')) {
+        payload.description = form.description || null;
+      }
+      if (form.action_type !== action?.action_type) {
+        payload.action_type = form.action_type;
+      }
+      if (form.legal_status !== action?.legal_status) {
+        payload.legal_status = form.legal_status;
+      }
+      if (form.court_name !== (action?.court_name || '')) {
+        payload.court_name = form.court_name || null;
+      }
+      if (form.filing_date !== (action?.filing_date ? action.filing_date.split('T')[0] : '')) {
+        payload.filing_date = form.filing_date || null;
+      }
+      if (form.closing_date !== (action?.closing_date ? action.closing_date.split('T')[0] : '')) {
+        payload.closing_date = form.closing_date || null;
+      }
+      const newClientId = form.client_id ? parseInt(form.client_id, 10) : undefined;
+      if (newClientId && newClientId !== action?.client_id) {
+        payload.client_id = newClientId;
+      }
 
-      await LegalActionService.createLegalAction(payload);
+      // Se nenhum campo foi alterado
+      if (Object.keys(payload).length === 0) {
+        setLocation('/processos');
+        return;
+      }
+
+      await LegalActionService.updateLegalAction(actionId, payload);
       setLocation('/processos');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao criar processo';
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar processo';
       setError(errorMessage);
       setIsLoading(false);
     }
   };
+
+  if (isLoadingAction) {
+    return (
+      <div className="p-8 min-h-full flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!action) {
+    return (
+      <div className="p-8 min-h-full">
+        <div className="max-w-3xl mx-auto">
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>Processo não encontrado</AlertDescription>
+          </Alert>
+          <Button onClick={() => setLocation('/processos')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Voltar para Processos
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 min-h-full">
@@ -129,8 +237,10 @@ export default function ProcessoNovoPage() {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Voltar para Processos
           </Button>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Novo Processo</h1>
-          <p className="text-muted-foreground">Preencha as informações para cadastrar uma nova ação jurídica</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Editar Processo</h1>
+          <p className="text-muted-foreground">
+            Atualize as informações da ação jurídica {action.number}
+          </p>
         </div>
 
         {error && (
@@ -144,22 +254,20 @@ export default function ProcessoNovoPage() {
           <Card className="mb-6">
             <CardHeader>
               <CardTitle>Dados da Ação</CardTitle>
-              <CardDescription>Campos obrigatórios e opcionais</CardDescription>
+              <CardDescription>Campos editáveis da ação jurídica</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <label htmlFor="number" className="block text-sm font-medium text-foreground">
-                  Número <span className="text-destructive">*</span>
+                  Número
                 </label>
                 <Input
                   id="number"
-                  placeholder="Ex: 0001234-56.2025.8.26.0100"
-                  value={form.number}
-                  onChange={(e) => handleChange('number', e.target.value)}
-                  disabled={isLoading}
-                  required
-                  minLength={3}
+                  value={action.number}
+                  disabled
+                  className="bg-muted"
                 />
+                <p className="text-xs text-muted-foreground">O número não pode ser alterado</p>
               </div>
 
               <div className="space-y-2">
@@ -179,7 +287,7 @@ export default function ProcessoNovoPage() {
 
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-foreground">
-                  Cliente <span className="text-destructive">*</span>
+                  Cliente
                 </label>
                 <Popover open={clientOpen} onOpenChange={handlePopoverOpenChange}>
                   <PopoverTrigger asChild>
@@ -191,10 +299,10 @@ export default function ProcessoNovoPage() {
                       disabled={isLoading}
                       className={cn(
                         'w-full justify-between font-normal hover:bg-muted hover:text-foreground',
-                        !selectedClient && 'text-muted-foreground'
+                        !selectedClient?.name && 'text-muted-foreground'
                       )}
                     >
-                      {selectedClient ? selectedClient.name : 'Selecione um cliente'}
+                      {selectedClient?.name ?? 'Selecione um cliente'}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -237,9 +345,8 @@ export default function ProcessoNovoPage() {
                 id="action_type"
                 label="Tipo de Ação"
                 value={form.action_type}
-                onChange={(e: { target: { value: string } }) => handleChange('action_type', e.target.value)}
+                onChange={(e) => handleChange('action_type', e.target.value as LegalActionType)}
                 disabled={isLoading}
-                required
                 options={Object.values(LegalActionType).map((value) => ({
                   value,
                   label: formatActionType(value),
@@ -262,7 +369,7 @@ export default function ProcessoNovoPage() {
                   id="legal_status"
                   label="Status Jurídico"
                   value={form.legal_status}
-                  onChange={(e: { target: { value: string } }) => handleChange('legal_status', e.target.value)}
+                  onChange={(e) => handleChange('legal_status', e.target.value as LegalStatus)}
                   disabled={isLoading}
                   options={Object.values(LegalStatus).map((value) => ({
                     value,
@@ -282,17 +389,29 @@ export default function ProcessoNovoPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label htmlFor="filing_date" className="block text-sm font-medium text-foreground">Data de Distribuição</label>
-                <Input
-                  id="filing_date"
-                  type="date"
-                  value={form.filing_date}
-                  onChange={(e) => handleChange('filing_date', e.target.value)}
-                  disabled={isLoading}
-                />
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label htmlFor="filing_date" className="block text-sm font-medium text-foreground">Data de Distribuição</label>
+                  <Input
+                    id="filing_date"
+                    type="date"
+                    value={form.filing_date}
+                    onChange={(e) => handleChange('filing_date', e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
 
+                <div className="space-y-2">
+                  <label htmlFor="closing_date" className="block text-sm font-medium text-foreground">Data de Encerramento</label>
+                  <Input
+                    id="closing_date"
+                    type="date"
+                    value={form.closing_date}
+                    onChange={(e) => handleChange('closing_date', e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -306,14 +425,14 @@ export default function ProcessoNovoPage() {
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isLoading} onClick={(e: React.MouseEvent<HTMLButtonElement>) => { /* form submit handled by form */ }}>
+            <Button type="submit" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Salvando...
                 </>
               ) : (
-                'Criar Processo'
+                'Salvar Alterações'
               )}
             </Button>
           </div>

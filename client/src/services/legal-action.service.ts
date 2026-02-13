@@ -2,28 +2,83 @@ import { AuthService } from './auth.service';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-export type LegalStatus = 'open' | 'closed' | 'archived' | string;
-
-export interface LegalActionClient {
-  id: number;
-  number?: string;
-  title?: string;
-  status?: LegalStatus;
-  client_id?: number;
-  client_name?: string;
-  created_at: string;
-  updated_at?: string;
+// Tipos conforme documentação
+export enum LegalActionType {
+  LABOR = 'labor',
+  CIVIL = 'civil',
+  CRIMINAL = 'criminal',
+  ADMINISTRATIVE = 'admin',
+  TAX = 'tax',
+  COMMERCIAL = 'commercial',
+  FAMILY = 'family',
+  REAL_ESTATE = 'real_estate',
+  OTHER = 'other',
 }
 
+export enum LegalStatus {
+  PRE_TRIAL = 'pre_trial',
+  FILING = 'filing',
+  LITIGATION = 'litigation',
+  EXECUTION = 'execution',
+  APPEAL = 'appeal',
+  FINALIZED = 'finalized',
+  ARCHIVED = 'archived',
+}
+
+export interface LegalAction {
+  id: number;
+  number: string;
+  title: string;
+  description: string | null;
+  action_type: LegalActionType;
+  legal_status: LegalStatus;
+  court_name: string | null;
+  filing_date: string | null;
+  closing_date: string | null;
+  client_id: number;
+  organization_id: number;
+  user_id: number | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
+  // Campo adicional retornado pela API para exibição na lista
+  client_name?: string;
+}
+
+export interface LegalActionCreate {
+  number: string;
+  title: string;
+  description?: string | null;
+  action_type: LegalActionType;
+  legal_status?: LegalStatus;
+  court_name?: string | null;
+  filing_date?: string | null;
+  client_id: number;
+}
+
+export interface LegalActionUpdate {
+  title?: string;
+  description?: string | null;
+  action_type?: LegalActionType;
+  legal_status?: LegalStatus;
+  court_name?: string | null;
+  filing_date?: string | null;
+  closing_date?: string | null;
+  client_id?: number;
+}
+
+// Resposta crua da API (conforme doc)
+export interface ApiLegalActionListResponse {
+  total: number;
+  legal_actions: LegalAction[];
+}
+
+// Resposta adaptada para o front atual
 export interface LegalActionListResponse {
-  actions: LegalActionClient[];
+  actions: LegalAction[];
   total: number;
   skip: number;
   limit: number;
-}
-
-export interface LegalActionResponse {
-  action: LegalActionClient;
 }
 
 export class LegalActionService {
@@ -47,13 +102,20 @@ export class LegalActionService {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || 'Erro ao buscar processos');
+      throw new Error(error.detail || error.message || 'Erro ao buscar processos');
     }
 
-    return response.json();
+    const data: ApiLegalActionListResponse = await response.json();
+
+    return {
+      actions: data.legal_actions,
+      total: data.total,
+      skip,
+      limit,
+    };
   }
 
-  static async getLegalActionById(id: number): Promise<LegalActionResponse> {
+  static async getLegalActionById(id: number): Promise<LegalAction> {
     const response = await AuthService.authenticatedFetch(
       `${API_BASE_URL}/api/v1/legal-actions/${id}`,
       { method: 'GET' }
@@ -61,22 +123,13 @@ export class LegalActionService {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || 'Erro ao buscar processo');
+      throw new Error(error.detail || error.message || 'Erro ao buscar processo');
     }
 
     return response.json();
   }
 
-  static async createLegalAction(data: Partial<{
-    number: string;
-    title: string;
-    client_id: number;
-    action_type: string;
-    description?: string;
-    legal_status?: string;
-    court_name?: string;
-    filing_date?: string;
-  }>): Promise<LegalActionResponse> {
+  static async createLegalAction(data: LegalActionCreate): Promise<LegalAction> {
     const response = await AuthService.authenticatedFetch(
       `${API_BASE_URL}/api/v1/legal-actions`,
       {
@@ -87,9 +140,38 @@ export class LegalActionService {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || 'Erro ao criar processo');
+      throw new Error(error.detail || error.message || 'Erro ao criar processo');
     }
 
     return response.json();
+  }
+
+  static async updateLegalAction(id: number, data: LegalActionUpdate): Promise<LegalAction> {
+    const response = await AuthService.authenticatedFetch(
+      `${API_BASE_URL}/api/v1/legal-actions/${id}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || error.message || 'Erro ao atualizar processo');
+    }
+
+    return response.json();
+  }
+
+  static async deleteLegalAction(id: number): Promise<void> {
+    const response = await AuthService.authenticatedFetch(
+      `${API_BASE_URL}/api/v1/legal-actions/${id}`,
+      { method: 'DELETE' }
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || error.message || 'Erro ao excluir processo');
+    }
   }
 }

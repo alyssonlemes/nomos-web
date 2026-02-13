@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Select } from '@/components/ui/select';
+import { SelectField } from '@/components/ui/select-field';
 import { AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
+import { toast } from 'sonner';
 import { ClientService, CreateClientData } from '@/services/client.service';
 
 /**
@@ -76,6 +77,7 @@ export default function ClienteNovoPage() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar cliente';
       setError(errorMessage);
+      toast.error(errorMessage);
       setIsLoading(false);
     }
   };
@@ -147,21 +149,17 @@ export default function ClienteNovoPage() {
               </div>
 
               {/* Tipo de Cliente */}
-              <div className="space-y-2">
-                <label htmlFor="client_type" className="block text-sm font-medium text-foreground">
-                  Tipo de Cliente
-                </label>
-                <select
-                  id="client_type"
-                  value={formData.client_type}
-                  onChange={(e) => handleChange('client_type', e.target.value)}
-                  disabled={isLoading}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="individual">Pessoa Física</option>
-                  <option value="business">Pessoa Jurídica</option>
-                </select>
-              </div>
+              <SelectField
+                id="client_type"
+                label="Tipo de Cliente"
+                value={formData.client_type}
+                onChange={(e) => handleChange('client_type', e.target.value)}
+                disabled={isLoading}
+                options={[
+                  { value: 'individual', label: 'Pessoa Física' },
+                  { value: 'business', label: 'Pessoa Jurídica' },
+                ]}
+              />
 
               {/* Nome da Empresa (se for PJ) */}
               {formData.client_type === 'business' && (
@@ -180,23 +178,19 @@ export default function ClienteNovoPage() {
               )}
 
               {/* Status */}
-              <div className="space-y-2">
-                <label htmlFor="status" className="block text-sm font-medium text-foreground">
-                  Status
-                </label>
-                <select
-                  id="status"
-                  value={formData.status}
-                  onChange={(e) => handleChange('status', e.target.value)}
-                  disabled={isLoading}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="prospect">Prospect</option>
-                  <option value="active">Ativo</option>
-                  <option value="inactive">Inativo</option>
-                  <option value="archived">Arquivado</option>
-                </select>
-              </div>
+              <SelectField
+                id="status"
+                label="Status"
+                value={formData.status}
+                onChange={(e) => handleChange('status', e.target.value)}
+                disabled={isLoading}
+                options={[
+                  { value: 'prospect', label: 'Prospecção' },
+                  { value: 'active', label: 'Ativo' },
+                  { value: 'inactive', label: 'Inativo' },
+                  { value: 'archived', label: 'Arquivado' },
+                ]}
+              />
             </CardContent>
           </Card>
 

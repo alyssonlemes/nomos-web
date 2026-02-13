@@ -46,6 +46,12 @@ export default function Sidebar() {
       ],
     },
     {
+      id: 'jurimetria',
+      label: 'Jurimetria',
+      icon: <Bot className="w-5 h-5" />,
+      href: '/jurimetria',
+    },
+    {
       id: 'processos',
       label: 'Processos',
       icon: <FileText className="w-5 h-5" />,
@@ -53,12 +59,6 @@ export default function Sidebar() {
       submenu: [
         { id: 'processos-lista', label: 'Lista de Processos', href: '/processos' },
       ],
-    },
-    {
-      id: 'jurimetria',
-      label: 'Jurimetria',
-      icon: <Bot className="w-5 h-5" />,
-      href: '/jurimetria',
     },
     {
       id: 'usuarios',
