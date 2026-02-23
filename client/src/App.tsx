@@ -17,6 +17,10 @@ import Processos from "./pages/legal-actions";
 import ProcessosNew from "./pages/legal-actions/new";
 import ProcessosEdit from "./pages/legal-actions/edit";
 import ProcessosView from "./pages/legal-actions/view";
+import LegalActionTypes from "./pages/legal-action-types";
+import LegalActionTypesNew from "./pages/legal-action-types/new";
+import LegalActionTypesEdit from "./pages/legal-action-types/edit";
+import LegalActionTypesView from "./pages/legal-action-types/view";
 import UsuariosList from "./pages/users/index";
 import UsuariosNew from "./pages/users/new";
 import UsuariosView from "./pages/users/view";
@@ -78,31 +82,59 @@ function Router() {
           </Layout>
         </ProtectedRoute>
       </Route>
-      <Route path={"/processos"}>
+      <Route path={"/legal-actions"}>
         <ProtectedRoute>
           <Layout>
             <Processos />
           </Layout>
         </ProtectedRoute>
       </Route>
-      <Route path="/processos/novo">
+      <Route path="/legal-actions/novo">
         <ProtectedRoute>
           <Layout>
             <ProcessosNew />
           </Layout>
         </ProtectedRoute>
       </Route>
-      <Route path="/processos/:id/editar">
+      <Route path="/legal-actions/:id/editar">
         <ProtectedRoute>
           <Layout>
             <ProcessosEdit />
           </Layout>
         </ProtectedRoute>
       </Route>
-      <Route path="/processos/:id">
+      <Route path="/legal-actions/:id">
         <ProtectedRoute>
           <Layout>
             <ProcessosView />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path={"/legal-action-types"}>
+        <ProtectedRoute>
+          <Layout>
+            <LegalActionTypes />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/legal-action-types/novo">
+        <ProtectedRoute>
+          <Layout>
+            <LegalActionTypesNew />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/legal-action-types/:id/editar">
+        <ProtectedRoute>
+          <Layout>
+            <LegalActionTypesEdit />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/legal-action-types/:id">
+        <ProtectedRoute>
+          <Layout>
+            <LegalActionTypesView />
           </Layout>
         </ProtectedRoute>
       </Route>

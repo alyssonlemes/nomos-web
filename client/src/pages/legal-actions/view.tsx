@@ -20,6 +20,12 @@ import { ClientService } from '@/services/client.service';
 import { Badge } from '@/components/ui/badge';
 import { formatLegalStatus, formatActionType } from '@/utils/formats';
 
+function getActionTypeLabel(action: LegalAction): string {
+  if (action.action_type?.name) return action.action_type.name;
+  if (action.action_type?.code) return formatActionType(action.action_type.code);
+  return '—';
+}
+
 /**
  * Página de Visualização de Processo - Nomos
  * Exibe informações detalhadas da ação jurídica
@@ -86,7 +92,7 @@ export default function ProcessoViewPage() {
         <div className="mb-8">
           <Button
             variant="ghost"
-            onClick={() => setLocation('/processos')}
+            onClick={() => setLocation('/legal-actions')}
             className="mb-4 -ml-4 hover:bg-muted hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -167,7 +173,7 @@ export default function ProcessoViewPage() {
                   <Scale className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Tipo da ação</p>
-                    <p className="text-base text-foreground">{formatActionType(action.action_type)}</p>
+                    <p className="text-base text-foreground">{getActionTypeLabel(action)}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -224,10 +230,10 @@ export default function ProcessoViewPage() {
             </Card>
 
             <div className="flex items-center justify-end gap-4">
-              <Button variant="outline" onClick={() => setLocation('/processos')} className="hover:bg-muted">
+              <Button variant="outline" onClick={() => setLocation('/legal-actions')} className="hover:bg-muted">
                 Voltar
               </Button>
-              <Button onClick={() => setLocation(`/processos/${action.id}/editar`)} className="gap-2">
+              <Button onClick={() => setLocation(`/legal-actions/${action.id}/editar`)} className="gap-2">
                 <Edit className="h-4 w-4" />
                 Editar processo
               </Button>

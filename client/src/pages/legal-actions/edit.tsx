@@ -8,8 +8,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { AlertCircle, Loader2, ArrowLeft, ChevronsUpDown } from 'lucide-react';
-import { LegalActionService, LegalAction, LegalActionType, LegalStatus } from '@/services/legal-action.service';
-import { formatLegalStatus, formatActionType } from '@/utils/formats';
+import { LegalActionService, LegalAction, LegalStatus, LegalActionTypeEntity } from '@/services/legal-action.service';
+import { formatLegalStatus } from '@/utils/formats';
 import { ClientService, Client } from '@/services/client.service';
 import { SelectField } from '@/components/ui/select-field';
 import { cn } from '@/lib/utils';
@@ -17,18 +17,19 @@ import { cn } from '@/lib/utils';
 const CLIENT_PAGE_SIZE = 100;
 
 export default function ProcessoEditPage() {
-  const [, params] = useRoute('/processos/:id/editar');
+  const [, params] = useRoute('/legal-actions/:id/editar');
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingAction, setIsLoadingAction] = useState(true);
   const [error, setError] = useState('');
   const [action, setAction] = useState<LegalAction | null>(null);
+  const [actionTypes, setActionTypes] = useState<LegalActionTypeEntity[]>([]);
 
   const [form, setForm] = useState({
     title: '',
     description: '',
     client_id: '',
-    action_type: 'civil' as LegalActionType,
+    action_type_id: '',
     legal_status: 'pre_trial' as LegalStatus,
     court_name: '',
     filing_date: '',
@@ -43,6 +44,12 @@ export default function ProcessoEditPage() {
   const [hasSearched, setHasSearched] = useState(false);
 
   const actionId = params?.id ? parseInt(params.id) : null;
+
+  useEffect(() => {
+    LegalActionService.getLegalActionTypes()
+      .then(setActionTypes)
+      .catch(() => setActionTypes([]));
+  }, []);
 
   useEffect(() => {
     if (actionId) {
@@ -62,7 +69,7 @@ export default function ProcessoEditPage() {
         title: data.title || '',
         description: data.description || '',
         client_id: String(data.client_id ?? ''),
-        action_type: data.action_type || LegalActionType.CIVIL,
+        action_type_id: String(data.action_type_id ?? ''),
         legal_status: data.legal_status || LegalStatus.PRE_TRIAL,
         court_name: data.court_name || '',
         filing_date: data.filing_date ? data.filing_date.split('T')[0] : '',
@@ -135,7 +142,7 @@ export default function ProcessoEditPage() {
     setClientOpen(false);
   };
 
-  const handleChange = (field: keyof typeof form, value: string) => {
+  const handleChange = (field: keyof typeof form, value: string | number) => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
@@ -165,8 +172,9 @@ export default function ProcessoEditPage() {
       if (form.description !== (action?.description || '')) {
         payload.description = form.description || null;
       }
-      if (form.action_type !== action?.action_type) {
-        payload.action_type = form.action_type;
+      const formActionTypeId = form.action_type_id ? parseInt(form.action_type_id, 10) : undefined;
+      if (formActionTypeId !== undefined && formActionTypeId !== action?.action_type_id) {
+        payload.action_type_id = formActionTypeId;
       }
       if (form.legal_status !== action?.legal_status) {
         payload.legal_status = form.legal_status;
@@ -187,12 +195,12 @@ export default function ProcessoEditPage() {
 
       // Se nenhum campo foi alterado
       if (Object.keys(payload).length === 0) {
-        setLocation('/processos');
+        setLocation('/legal-actions');
         return;
       }
 
       await LegalActionService.updateLegalAction(actionId, payload);
-      setLocation('/processos');
+      setLocation('/legal-actions');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar processo';
       setError(errorMessage);
@@ -216,7 +224,7 @@ export default function ProcessoEditPage() {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>Processo não encontrado</AlertDescription>
           </Alert>
-          <Button onClick={() => setLocation('/processos')}>
+          <Button onClick={() => setLocation('/legal-actions')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Voltar para Processos
           </Button>
@@ -231,7 +239,7 @@ export default function ProcessoEditPage() {
         <div className="mb-8">
           <Button
             variant="ghost"
-            onClick={() => setLocation('/processos')}
+            onClick={() => setLocation('/legal-actions')}
             className="mb-4 -ml-4 hover:bg-muted hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -342,14 +350,14 @@ export default function ProcessoEditPage() {
               </div>
 
               <SelectField
-                id="action_type"
+                id="action_type_id"
                 label="Tipo de Ação"
-                value={form.action_type}
-                onChange={(e) => handleChange('action_type', e.target.value as LegalActionType)}
+                value={form.action_type_id}
+                onChange={(e: { target: { value: string } }) => handleChange('action_type_id', e.target.value)}
                 disabled={isLoading}
-                options={Object.values(LegalActionType).map((value) => ({
-                  value,
-                  label: formatActionType(value),
+                options={actionTypes.map((t) => ({
+                  value: String(t.id),
+                  label: t.name || t.code,
                 }))}
               />
 
@@ -419,7 +427,7 @@ export default function ProcessoEditPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setLocation('/processos')}
+              onClick={() => setLocation('/legal-actions')}
               disabled={isLoading}
               className="hover:bg-muted"
             >

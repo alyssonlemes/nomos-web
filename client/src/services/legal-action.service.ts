@@ -2,17 +2,12 @@ import { AuthService } from './auth.service';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-// Tipos conforme documentação
-export enum LegalActionType {
-  LABOR = 'labor',
-  CIVIL = 'civil',
-  CRIMINAL = 'criminal',
-  ADMINISTRATIVE = 'admin',
-  TAX = 'tax',
-  COMMERCIAL = 'commercial',
-  FAMILY = 'family',
-  REAL_ESTATE = 'real_estate',
-  OTHER = 'other',
+// Tipo de ação retornado pela API (GET /legal-action-types e aninhado em LegalAction)
+export interface LegalActionTypeEntity {
+  id: number;
+  name: string;
+  code: string;
+  description: string | null;
 }
 
 export enum LegalStatus {
@@ -30,7 +25,8 @@ export interface LegalAction {
   number: string;
   title: string;
   description: string | null;
-  action_type: LegalActionType;
+  action_type_id: number;
+  action_type: LegalActionTypeEntity | null;
   legal_status: LegalStatus;
   court_name: string | null;
   filing_date: string | null;
@@ -41,7 +37,6 @@ export interface LegalAction {
   is_active: boolean;
   created_at: string;
   updated_at: string | null;
-  // Campo adicional retornado pela API para exibição na lista
   client_name?: string;
 }
 
@@ -49,7 +44,7 @@ export interface LegalActionCreate {
   number: string;
   title: string;
   description?: string | null;
-  action_type: LegalActionType;
+  action_type_id: number;
   legal_status?: LegalStatus;
   court_name?: string | null;
   filing_date?: string | null;
@@ -59,7 +54,7 @@ export interface LegalActionCreate {
 export interface LegalActionUpdate {
   title?: string;
   description?: string | null;
-  action_type?: LegalActionType;
+  action_type_id?: number;
   legal_status?: LegalStatus;
   court_name?: string | null;
   filing_date?: string | null;
@@ -82,6 +77,19 @@ export interface LegalActionListResponse {
 }
 
 export class LegalActionService {
+  static async getLegalActionTypes(): Promise<LegalActionTypeEntity[]> {
+    const response = await AuthService.authenticatedFetch(
+      `${API_BASE_URL}/api/v1/legal-action-types`,
+      { method: 'GET' }
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || error.message || 'Erro ao buscar tipos de ação');
+    }
+    const data = await response.json();
+    return Array.isArray(data) ? data : data.legal_action_types ?? data.items ?? [];
+  }
+
   static async getLegalActions(
     skip = 0,
     limit = 10,

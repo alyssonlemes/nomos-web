@@ -73,7 +73,13 @@ export default function ProcessosPage() {
     {
       header: 'Tipo',
       accessorKey: 'action_type',
-      cell: (row) => formatActionType(row.action_type),
+      cell: (row: any) => {
+        const code =
+          typeof row.action_type === 'string'
+            ? row.action_type
+            : row.action_type?.code;
+        return formatActionType(code);
+      },
     },
     {
       header: 'Status',
@@ -96,7 +102,7 @@ export default function ProcessosPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setLocation(`/processos/${row.id}/editar`)}
+            onClick={() => setLocation(`/legal-actions/${row.id}/editar`)}
             className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
             title="Editar"
           >
@@ -105,7 +111,7 @@ export default function ProcessosPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setLocation(`/processos/${row.id}`)}
+            onClick={() => setLocation(`/legal-actions/${row.id}`)}
             className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
             title="Visualizar"
           >
@@ -143,7 +149,7 @@ export default function ProcessosPage() {
             <h1 className="text-3xl font-bold text-foreground mb-2">Processos</h1>
             <p className="text-muted-foreground">Gerencie as ações jurídicas da sua organização</p>
           </div>
-          <Button className="gap-2" onClick={() => setLocation('/processos/novo')}>
+          <Button className="gap-2" onClick={() => setLocation('/legal-actions/novo')}>
             <Plus className="w-4 h-4" />
             Novo Processo
           </Button>
@@ -178,7 +184,7 @@ export default function ProcessosPage() {
             ) : actions.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground mb-4">Nenhum processo encontrado</p>
-                <Button variant="outline" onClick={() => setLocation('/processos/novo')} className="hover:bg-muted hover:text-foreground">
+                <Button variant="outline" onClick={() => setLocation('/legal-actions/novo')} className="hover:bg-muted hover:text-foreground">
                   <Plus className="w-4 h-4 mr-2" />
                   Adicionar Primeiro Processo
                 </Button>

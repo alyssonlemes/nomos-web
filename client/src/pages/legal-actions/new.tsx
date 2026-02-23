@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,8 +8,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { AlertCircle, Loader2, ArrowLeft, ChevronsUpDown } from 'lucide-react';
-import { LegalActionService, LegalActionType, LegalStatus } from '@/services/legal-action.service';
-import { formatLegalStatus, formatActionType } from '@/utils/formats';
+import { LegalActionService, LegalStatus, LegalActionTypeEntity } from '@/services/legal-action.service';
+import { formatLegalStatus } from '@/utils/formats';
 import { ClientService, Client } from '@/services/client.service';
 import { SelectField } from '../../components/ui/select-field';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,7 @@ export default function ProcessoNovoPage() {
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [actionTypes, setActionTypes] = useState<LegalActionTypeEntity[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [clientSearch, setClientSearch] = useState('');
   const [loadingClients, setLoadingClients] = useState(false);
@@ -31,12 +32,18 @@ export default function ProcessoNovoPage() {
     number: '',
     title: '',
     client_id: '',
-    action_type: 'civil',
+    action_type_id: '',
     description: '',
     legal_status: 'pre_trial',
     court_name: '',
     filing_date: '',
   });
+
+  useEffect(() => {
+    LegalActionService.getLegalActionTypes()
+      .then(setActionTypes)
+      .catch(() => setActionTypes([]));
+  }, []);
 
   const fetchClients = useCallback(async (search: string) => {
     if (!search.trim()) {
@@ -75,7 +82,7 @@ export default function ProcessoNovoPage() {
     }
   };
 
-  const handleChange = (field: keyof typeof form, value: string) => {
+  const handleChange = (field: keyof typeof form, value: string | number) => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
@@ -95,21 +102,22 @@ export default function ProcessoNovoPage() {
       if (!form.title || form.title.length < 3) throw new Error('Título deve ter no mínimo 3 caracteres');
       const clientId = Number(form.client_id);
       if (!clientId || Number.isNaN(clientId)) throw new Error('Selecione um cliente');
+      const actionTypeId = Number(form.action_type_id);
+      if (!actionTypeId || Number.isNaN(actionTypeId)) throw new Error('Selecione o tipo de ação');
 
-      const payload: any = {
+      const payload: Parameters<typeof LegalActionService.createLegalAction>[0] = {
         number: form.number,
         title: form.title,
         client_id: clientId,
-        action_type: form.action_type,
+        action_type_id: actionTypeId,
+        ...(form.description && { description: form.description }),
+        ...(form.legal_status && { legal_status: form.legal_status as LegalStatus }),
+        ...(form.court_name && { court_name: form.court_name }),
+        ...(form.filing_date && { filing_date: form.filing_date }),
       };
 
-      if (form.description) payload.description = form.description;
-      if (form.legal_status) payload.legal_status = form.legal_status;
-      if (form.court_name) payload.court_name = form.court_name;
-      if (form.filing_date) payload.filing_date = form.filing_date;
-
       await LegalActionService.createLegalAction(payload);
-      setLocation('/processos');
+      setLocation('/legal-actions');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar processo';
       setError(errorMessage);
@@ -123,7 +131,7 @@ export default function ProcessoNovoPage() {
         <div className="mb-8">
           <Button
             variant="ghost"
-            onClick={() => setLocation('/processos')}
+            onClick={() => setLocation('/legal-actions')}
             className="mb-4 -ml-4 hover:bg-muted hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -234,15 +242,15 @@ export default function ProcessoNovoPage() {
               </div>
 
               <SelectField
-                id="action_type"
+                id="action_type_id"
                 label="Tipo de Ação"
-                value={form.action_type}
-                onChange={(e: { target: { value: string } }) => handleChange('action_type', e.target.value)}
+                value={form.action_type_id}
+                onChange={(e: { target: { value: string } }) => handleChange('action_type_id', e.target.value)}
                 disabled={isLoading}
                 required
-                options={Object.values(LegalActionType).map((value) => ({
-                  value,
-                  label: formatActionType(value),
+                options={actionTypes.map((t) => ({
+                  value: String(t.id),
+                  label: t.name || t.code,
                 }))}
               />
 
@@ -300,7 +308,7 @@ export default function ProcessoNovoPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setLocation('/processos')}
+              onClick={() => setLocation('/legal-actions')}
               disabled={isLoading}
               className="hover:bg-muted"
             >
