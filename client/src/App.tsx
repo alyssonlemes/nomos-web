@@ -21,6 +21,10 @@ import LegalActionTypes from "./pages/legal-action-types";
 import LegalActionTypesNew from "./pages/legal-action-types/new";
 import LegalActionTypesEdit from "./pages/legal-action-types/edit";
 import LegalActionTypesView from "./pages/legal-action-types/view";
+import LegalActionStatuses from "./pages/legal-action-statuses";
+import LegalActionStatusesNew from "./pages/legal-action-statuses/new";
+import LegalActionStatusesEdit from "./pages/legal-action-statuses/edit";
+import LegalActionStatusesView from "./pages/legal-action-statuses/view";
 import UsuariosList from "./pages/users/index";
 import UsuariosNew from "./pages/users/new";
 import UsuariosView from "./pages/users/view";
@@ -135,6 +139,34 @@ function Router() {
         <ProtectedRoute>
           <Layout>
             <LegalActionTypesView />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path={"/legal-action-statuses"}>
+        <ProtectedRoute>
+          <Layout>
+            <LegalActionStatuses />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/legal-action-statuses/novo">
+        <ProtectedRoute>
+          <Layout>
+            <LegalActionStatusesNew />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/legal-action-statuses/:id/editar">
+        <ProtectedRoute>
+          <Layout>
+            <LegalActionStatusesEdit />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/legal-action-statuses/:id">
+        <ProtectedRoute>
+          <Layout>
+            <LegalActionStatusesView />
           </Layout>
         </ProtectedRoute>
       </Route>

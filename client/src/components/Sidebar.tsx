@@ -59,6 +59,7 @@ export default function Sidebar() {
       submenu: [
         { id: 'processos-lista', label: 'Lista de Processos', href: '/legal-actions' },
         { id: 'tipos-acoes', label: 'Tipos de Ações', href: '/legal-action-types' },
+        { id: 'status-acoes', label: 'Status de Ações', href: '/legal-action-statuses' },
       ],
     },
     {
@@ -109,7 +110,7 @@ export default function Sidebar() {
   const getActiveItem = () => {
     if (location === '/home') return 'home';
     if (location.startsWith('/clientes')) return 'clientes';
-    if (location.startsWith('/legal-actions') || location.startsWith('/legal-action-types')) return 'processos';
+    if (location.startsWith('/legal-actions') || location.startsWith('/legal-action-types') || location.startsWith('/legal-action-statuses')) return 'processos';
     if (location.startsWith('/jurimetria')) return 'jurimetria';
     if (location.startsWith('/usuarios')) return 'usuarios';
     if (location.startsWith('/profile')) return 'perfil';

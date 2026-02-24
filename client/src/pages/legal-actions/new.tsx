@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { AlertCircle, Loader2, ArrowLeft, ChevronsUpDown } from 'lucide-react';
 import { LegalActionService, LegalStatus, LegalActionTypeEntity } from '@/services/legal-action.service';
-import { formatLegalStatus } from '@/utils/formats';
+import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 import { ClientService, Client } from '@/services/client.service';
 import { SelectField } from '../../components/ui/select-field';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,7 @@ export default function ProcessoNovoPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [actionTypes, setActionTypes] = useState<LegalActionTypeEntity[]>([]);
+  const [statuses, setStatuses] = useState<LegalActionStatus[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [clientSearch, setClientSearch] = useState('');
   const [loadingClients, setLoadingClients] = useState(false);
@@ -34,7 +35,7 @@ export default function ProcessoNovoPage() {
     client_id: '',
     action_type_id: '',
     description: '',
-    legal_status: 'pre_trial',
+    legal_status: LegalStatus.PRE_TRIAL,
     court_name: '',
     filing_date: '',
   });
@@ -43,6 +44,12 @@ export default function ProcessoNovoPage() {
     LegalActionService.getLegalActionTypes()
       .then(setActionTypes)
       .catch(() => setActionTypes([]));
+  }, []);
+
+  useEffect(() => {
+    LegalActionStatusService.getLegalActionStatuses(0, 500)
+      .then(({ statuses }) => setStatuses(statuses))
+      .catch(() => setStatuses([]));
   }, []);
 
   const fetchClients = useCallback(async (search: string) => {
@@ -272,10 +279,17 @@ export default function ProcessoNovoPage() {
                   value={form.legal_status}
                   onChange={(e: { target: { value: string } }) => handleChange('legal_status', e.target.value)}
                   disabled={isLoading}
-                  options={Object.values(LegalStatus).map((value) => ({
-                    value,
-                    label: formatLegalStatus(value),
-                  }))}
+                  options={[
+                    // Evita duplicar o código "pre_trial": só adiciona o padrão
+                    // se ainda não existir um status com esse código vindo da API.
+                    ...(!statuses.some((status) => status.code === LegalStatus.PRE_TRIAL)
+                      ? [{ value: LegalStatus.PRE_TRIAL, label: 'Pendente (pré-configurado)' }]
+                      : []),
+                    ...statuses.map((status) => ({
+                      value: status.code,
+                      label: status.name || status.code,
+                    })),
+                  ]}
                 />
 
                 <div className="space-y-2">
@@ -314,7 +328,10 @@ export default function ProcessoNovoPage() {
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isLoading} onClick={(e: React.MouseEvent<HTMLButtonElement>) => { /* form submit handled by form */ }}>
+            <Button
+              type="submit"
+              disabled={isLoading}
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

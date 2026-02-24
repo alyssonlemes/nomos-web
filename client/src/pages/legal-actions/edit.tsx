@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useRoute } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { AlertCircle, Loader2, ArrowLeft, ChevronsUpDown } from 'lucide-react';
 import { LegalActionService, LegalAction, LegalStatus, LegalActionTypeEntity } from '@/services/legal-action.service';
-import { formatLegalStatus } from '@/utils/formats';
+import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 import { ClientService, Client } from '@/services/client.service';
 import { SelectField } from '@/components/ui/select-field';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,7 @@ export default function ProcessoEditPage() {
   const [error, setError] = useState('');
   const [action, setAction] = useState<LegalAction | null>(null);
   const [actionTypes, setActionTypes] = useState<LegalActionTypeEntity[]>([]);
+  const [statuses, setStatuses] = useState<LegalActionStatus[]>([]);
 
   const [form, setForm] = useState({
     title: '',
@@ -52,6 +53,12 @@ export default function ProcessoEditPage() {
   }, []);
 
   useEffect(() => {
+    LegalActionStatusService.getLegalActionStatuses(0, 500)
+      .then(({ statuses }) => setStatuses(statuses))
+      .catch(() => setStatuses([]));
+  }, []);
+
+  useEffect(() => {
     if (actionId) {
       loadAction(actionId);
     }
@@ -64,13 +71,20 @@ export default function ProcessoEditPage() {
       const data = await LegalActionService.getLegalActionById(id);
       setAction(data);
 
+      // A API pode retornar legal_status como string (código) ou como objeto.
+      const rawLegalStatus: any = (data as any).legal_status;
+      const legalStatusCode: LegalStatus =
+        (typeof rawLegalStatus === 'string'
+          ? rawLegalStatus
+          : rawLegalStatus?.code) || LegalStatus.PRE_TRIAL;
+
       // Preencher formulário com dados atuais
       setForm({
         title: data.title || '',
         description: data.description || '',
         client_id: String(data.client_id ?? ''),
         action_type_id: String(data.action_type_id ?? ''),
-        legal_status: data.legal_status || LegalStatus.PRE_TRIAL,
+        legal_status: legalStatusCode,
         court_name: data.court_name || '',
         filing_date: data.filing_date ? data.filing_date.split('T')[0] : '',
         closing_date: data.closing_date ? data.closing_date.split('T')[0] : '',
@@ -379,10 +393,17 @@ export default function ProcessoEditPage() {
                   value={form.legal_status}
                   onChange={(e) => handleChange('legal_status', e.target.value as LegalStatus)}
                   disabled={isLoading}
-                  options={Object.values(LegalStatus).map((value) => ({
-                    value,
-                    label: formatLegalStatus(value),
-                  }))}
+                  options={[
+                    // Garante que o status padrão continue disponível mesmo
+                    // se não houver mais um registro com esse código na API.
+                    ...(!statuses.some((status) => status.code === LegalStatus.PRE_TRIAL)
+                      ? [{ value: LegalStatus.PRE_TRIAL, label: 'Pendente (pré-configurado)' }]
+                      : []),
+                    ...statuses.map((status) => ({
+                      value: status.code,
+                      label: status.name || status.code,
+                    })),
+                  ]}
                 />
 
                 <div className="space-y-2">

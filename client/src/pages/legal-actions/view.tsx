@@ -16,6 +16,7 @@ import {
   Edit,
 } from 'lucide-react';
 import { LegalActionService, LegalAction } from '@/services/legal-action.service';
+import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 import { ClientService } from '@/services/client.service';
 import { Badge } from '@/components/ui/badge';
 import { formatLegalStatus, formatActionType } from '@/utils/formats';
@@ -47,6 +48,7 @@ export default function ProcessoViewPage() {
 
   const [action, setAction] = useState<LegalAction | null>(null);
   const [clientName, setClientName] = useState<string | null>(null);
+  const [statuses, setStatuses] = useState<LegalActionStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -58,6 +60,19 @@ export default function ProcessoViewPage() {
       setIsLoading(false);
     }
   }, [actionId]);
+
+  useEffect(() => {
+    LegalActionStatusService.getLegalActionStatuses(0, 500)
+      .then(({ statuses }) => setStatuses(statuses))
+      .catch(() => setStatuses([]));
+  }, []);
+
+  const getStatusLabel = (code: string | null | undefined) => {
+    if (!code) return '—';
+    const match = statuses.find((s) => s.code === code);
+    if (match?.name) return match.name;
+    return formatLegalStatus(code);
+  };
 
   const loadAction = async () => {
     if (!actionId) return;
@@ -181,7 +196,7 @@ export default function ProcessoViewPage() {
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Status</p>
                     <Badge variant="outline" className="font-normal">
-                      {formatLegalStatus(action.legal_status)}
+                      {getStatusLabel(action.legal_status)}
                     </Badge>
                   </div>
                 </div>

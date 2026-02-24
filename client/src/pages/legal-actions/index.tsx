@@ -7,7 +7,9 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2, Eye, Plus, Edit, Trash2 } from 'lucide-react';
 import { LegalActionService, LegalAction } from '@/services/legal-action.service';
+import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 import { formatLegalStatus, formatActionType } from '@/utils/formats';
+import { SelectField } from '@/components/ui/select-field';
 
 export default function ProcessosPage() {
   const [, setLocation] = useLocation();
@@ -17,20 +19,39 @@ export default function ProcessosPage() {
   const [success, setSuccess] = useState('');
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [statuses, setStatuses] = useState<LegalActionStatus[]>([]);
+  const [selectedStatusCode, setSelectedStatusCode] = useState('all');
 
   const ITEMS_PER_PAGE = 10;
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
   useEffect(() => {
     loadActions();
-  }, [currentPage]);
+  }, [currentPage, selectedStatusCode]);
+
+  useEffect(() => {
+    const loadStatuses = async () => {
+      try {
+        const { statuses } = await LegalActionStatusService.getLegalActionStatuses(0, 500);
+        setStatuses(statuses);
+      } catch {
+        setStatuses([]);
+      }
+    };
+
+    loadStatuses();
+  }, []);
 
   const loadActions = async () => {
     try {
       setIsLoading(true);
       setError('');
       const skip = (currentPage - 1) * ITEMS_PER_PAGE;
-      const data = await LegalActionService.getLegalActions(skip, ITEMS_PER_PAGE);
+      const data = await LegalActionService.getLegalActions(
+        skip,
+        ITEMS_PER_PAGE,
+        selectedStatusCode === 'all' ? undefined : selectedStatusCode,
+      );
       setActions(data.actions || []);
       setTotal(data.total || 0);
     } catch (err) {
@@ -171,10 +192,32 @@ export default function ProcessosPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Lista de Processos</CardTitle>
-            <CardDescription>
-              Total de {total} processo{total !== 1 ? 's' : ''}
-            </CardDescription>
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <CardTitle>Lista de Processos</CardTitle>
+                <CardDescription>
+                  Total de {total} processo{total !== 1 ? 's' : ''}
+                </CardDescription>
+              </div>
+              <div className="w-full md:w-64">
+                <SelectField
+                  id="status_filter"
+                  label="Status jurídico"
+                  value={selectedStatusCode}
+                  onChange={(e: { target: { value: string } }) => {
+                    setSelectedStatusCode(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  options={[
+                    { value: 'all', label: 'Todos os status' },
+                    ...statuses.map((status) => ({
+                      value: status.code,
+                      label: status.name || status.code,
+                    })),
+                  ]}
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
