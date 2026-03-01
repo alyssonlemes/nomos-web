@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2, Pencil, Trash2, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ClientService, Client } from '@/services/client.service';
+import { canAccess, getCurrentRole } from '@/lib/rbac';
 
 /**
  * Página de Clientes - Nomos
@@ -16,6 +17,9 @@ import { ClientService, Client } from '@/services/client.service';
 
 export default function ClientesPage() {
   const [, setLocation] = useLocation();
+  const currentRole = getCurrentRole();
+  const canWriteClients = canAccess(currentRole, 'clients.write');
+  const shouldShowOwnDataNotice = currentRole === 'MEMBER' || currentRole === 'VIEWER';
   const [clients, setClients] = useState<Client[]>([]);
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -96,7 +100,7 @@ export default function ClientesPage() {
       header: 'Ações',
       headerClassName: 'text-right',
       className: 'text-right',
-      cell: (client) => (
+      cell: (client) => canWriteClients ? (
         <div className="flex items-center justify-end gap-2">
           <Button
             variant="ghost"
@@ -127,7 +131,7 @@ export default function ClientesPage() {
             }
           />
         </div>
-      ),
+      ) : null,
     },
   ];
 
@@ -142,11 +146,19 @@ export default function ClientesPage() {
               Gerencie os clientes da sua organização
             </p>
           </div>
-          <Button className="gap-2" onClick={() => setLocation('/clientes/novo')}>
-            <Plus className="w-4 h-4" />
-            Novo Cliente
-          </Button>
+          {canWriteClients && (
+            <Button className="gap-2" onClick={() => setLocation('/clientes/novo')}>
+              <Plus className="w-4 h-4" />
+              Novo Cliente
+            </Button>
+          )}
         </div>
+
+        {shouldShowOwnDataNotice && (
+          <Alert className="mb-6">
+            <AlertDescription>Você vê apenas seus dados.</AlertDescription>
+          </Alert>
+        )}
 
         {/* Mensagens */}
         {error && (
@@ -180,10 +192,12 @@ export default function ClientesPage() {
                 <p className="text-muted-foreground mb-4">
                   Nenhum cliente cadastrado ainda
                 </p>
-                <Button variant="outline" onClick={() => setLocation('/clientes/novo')}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Adicionar Primeiro Cliente
-                </Button>
+                {canWriteClients && (
+                  <Button variant="outline" onClick={() => setLocation('/clientes/novo')}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Adicionar Primeiro Cliente
+                  </Button>
+                )}
               </div>
             ) : (
               <>

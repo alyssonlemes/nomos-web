@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import { InvitationService } from '@/services/invitation.service';
+import { canAccess, getCurrentRole } from '@/lib/rbac';
 
 /**
  * Pagina de Convidar Usuarios - Nomos
@@ -15,8 +16,10 @@ import { InvitationService } from '@/services/invitation.service';
 
 export default function UsuariosNewPage() {
   const [, setLocation] = useLocation();
+  const currentRole = getCurrentRole();
+  const canManageInvites = canAccess(currentRole, 'invitations.manage');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'admin' | 'member' | 'viewer'>('member');
+  const [role, setRole] = useState<'ADMIN' | 'MEMBER' | 'VIEWER' | 'ASSISTANT'>('MEMBER');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -50,6 +53,20 @@ export default function UsuariosNewPage() {
       setIsLoading(false);
     }
   };
+
+  if (!canManageInvites) {
+    return (
+      <div className="p-8 min-h-full">
+        <div className="max-w-3xl mx-auto">
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>Apenas administradores e proprietários podem convidar usuários.</AlertDescription>
+          </Alert>
+          <Button onClick={() => setLocation('/home')}>Voltar para Home</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 min-h-full">
@@ -115,13 +132,14 @@ export default function UsuariosNewPage() {
                   <select
                     id="role"
                     value={role}
-                    onChange={(e) => setRole(e.target.value as 'admin' | 'member' | 'viewer')}
+                    onChange={(e) => setRole(e.target.value as 'ADMIN' | 'MEMBER' | 'VIEWER' | 'ASSISTANT')}
                     disabled={isLoading}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <option value="admin">Administrador</option>
-                    <option value="member">Membro</option>
-                    <option value="viewer">Visualizador</option>
+                    <option value="ADMIN">Administrador</option>
+                    <option value="MEMBER">Membro</option>
+                    <option value="VIEWER">Visualizador</option>
+                    <option value="ASSISTANT">Assistente</option>
                   </select>
                 </div>
               </div>

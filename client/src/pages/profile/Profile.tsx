@@ -88,6 +88,11 @@ export default function Profile() {
             </div>
 
             <div>
+              <div className="text-sm text-muted-foreground">Role</div>
+              <div className="font-medium uppercase">{user?.role ?? '—'}</div>
+            </div>
+
+            <div>
               <div className="text-sm text-muted-foreground">Organização</div>
                 <div className="font-medium">{organization ? organization.name : (orgLoading ? 'Carregando...' : (orgError ?? (user?.organization_id ?? '—')))}</div>
             </div>

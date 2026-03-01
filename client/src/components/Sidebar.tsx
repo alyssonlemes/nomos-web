@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { Menu, X, ChevronDown, Users, FileText, Settings, LogOut, Grid3x3, UserCog, Bot } from 'lucide-react';
 import { AuthService } from '@/services/auth.service';
+import { UserRole, getCurrentRole } from '@/lib/rbac';
 
 /**
  * Componente Sidebar - Nomos
@@ -13,6 +14,7 @@ interface MenuItem {
   id: string;
   label: string;
   icon: React.ReactNode;
+  allowedRoles?: UserRole[];
   href?: string;
   submenu?: SubMenuItem[];
 }
@@ -28,18 +30,21 @@ export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<string[]>(['clientes']);
+  const currentRole = getCurrentRole();
 
   const menuItems: MenuItem[] = [
     {
       id: 'home',
       label: 'Home',
       icon: <Grid3x3 className="w-5 h-5" />,
+      allowedRoles: ['ADMIN', 'OWNER', 'MEMBER', 'VIEWER', 'ASSISTANT'],
       href: '/home',
     },
     {
       id: 'clientes',
       label: 'Clientes',
       icon: <Users className="w-5 h-5" />,
+      allowedRoles: ['ADMIN', 'OWNER', 'MEMBER', 'VIEWER', 'ASSISTANT'],
       href: '/clientes',
       submenu: [
         { id: 'clientes-lista', label: 'Lista de Clientes', href: '/clientes' },
@@ -49,12 +54,14 @@ export default function Sidebar() {
       id: 'jurimetria',
       label: 'Jurimetria',
       icon: <Bot className="w-5 h-5" />,
+      allowedRoles: ['ADMIN', 'OWNER', 'MEMBER', 'VIEWER'],
       href: '/jurimetria',
     },
     {
       id: 'processos',
       label: 'Processos',
       icon: <FileText className="w-5 h-5" />,
+      allowedRoles: ['ADMIN', 'OWNER', 'MEMBER', 'VIEWER'],
       href: '/legal-actions',
       submenu: [
         { id: 'processos-lista', label: 'Lista de Processos', href: '/legal-actions' },
@@ -66,6 +73,7 @@ export default function Sidebar() {
       id: 'usuarios',
       label: 'Usuários',
       icon: <UserCog className="w-5 h-5" />,
+      allowedRoles: ['ADMIN', 'OWNER', 'MEMBER'],
       href: '/usuarios',
       submenu: [
         { id: 'usuarios-lista', label: 'Lista de Funcionários', href: '/usuarios' },
@@ -118,6 +126,11 @@ export default function Sidebar() {
   };
 
   const activeItem = getActiveItem();
+  const visibleMenuItems = menuItems.filter((item) => {
+    if (!item.allowedRoles) return true;
+    if (!currentRole) return false;
+    return item.allowedRoles.includes(currentRole);
+  });
 
   return (
     <>
@@ -168,7 +181,7 @@ export default function Sidebar() {
 
         {/* Menu Principal */}
         <nav className="flex-1 px-4 py-6 space-y-3">
-          {menuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const isActive = activeItem === item.id;
             const isExpanded = isMenuExpanded(item.id);
             const hasSubmenu = item.submenu && item.submenu.length > 0;

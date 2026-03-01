@@ -1,3 +1,5 @@
+import { toast } from 'sonner';
+
 interface LoginRequest {
   email: string;
   password: string;
@@ -56,6 +58,7 @@ export class AuthService {
     localStorage.removeItem('token_type');
     localStorage.removeItem('expires_at');
     localStorage.removeItem('user');
+    localStorage.removeItem('userRole');
   }
 
   static getToken(): string | null {
@@ -184,6 +187,21 @@ export class AuthService {
     if (response.status === 401) {
       this.handleAuthError(response);
       throw new Error('Não autorizado');
+    }
+
+    if (response.status === 403) {
+      let message = 'Você não tem permissão para realizar esta ação';
+
+      try {
+        const payload = await response.clone().json();
+        if (payload?.detail && typeof payload.detail === 'string') {
+          message = payload.detail;
+        }
+      } catch {
+        // no-op
+      }
+
+      toast.error(message);
     }
 
     return response;

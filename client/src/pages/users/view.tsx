@@ -2,10 +2,19 @@ import { useState, useEffect } from 'react';
 import { useLocation, useParams } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Loader2, Mail, Calendar, CheckCircle2, XCircle, User } from 'lucide-react';
+import { ArrowLeft, Loader2, Mail, Calendar, CheckCircle2, XCircle, User, Edit2, Check, X } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { UserService, UserResponse } from '@/services/user.service';
 import { Badge } from '@/components/ui/badge';
+import { canAccess, getCurrentRole, getRoleLabel, ROLE_OPTIONS, UserRole } from '@/lib/rbac';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { toast } from 'sonner';
 
 /**
  * Página de Visualização de Usuário - Nomos
@@ -17,10 +26,15 @@ export default function UsuariosViewPage() {
   const [, setLocation] = useLocation();
   const params = useParams();
   const userId = params.id ? parseInt(params.id) : null;
+  const currentRole = getCurrentRole();
+  const canUpdateRole = canAccess(currentRole, 'users.write');
 
   const [user, setUser] = useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isEditingRole, setIsEditingRole] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
 
   useEffect(() => {
     if (userId) {
@@ -39,11 +53,30 @@ export default function UsuariosViewPage() {
       setError('');
       const data = await UserService.getUserById(userId);
       setUser(data);
+      setSelectedRole(data.role);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar usuário';
       setError(errorMessage);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleUpdateRole = async () => {
+    if (!userId || !selectedRole || !user) return;
+
+    setIsUpdatingRole(true);
+    try {
+      const updatedUser = await UserService.updateUserRole(userId, { role: selectedRole as UserRole });
+      setUser(updatedUser);
+      setIsEditingRole(false);
+      toast.success(`Perfil atualizado para ${getRoleLabel(selectedRole as UserRole)} com sucesso!`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar role';
+      toast.error(errorMessage);
+      setError(errorMessage);
+    } finally {
+      setIsUpdatingRole(false);
     }
   };
 
@@ -160,7 +193,60 @@ export default function UsuariosViewPage() {
                   Níveis de acesso e privilégios
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm font-medium text-foreground">Perfil de Acesso</span>
+                  {isEditingRole ? (
+                    <div className="flex items-center gap-2">
+                      <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as UserRole | '')}>
+                        <SelectTrigger className="w-32">
+                          <SelectValue placeholder="Selecione o perfil" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ROLE_OPTIONS.map((roleOption) => (
+                            <SelectItem key={roleOption.value} value={roleOption.value}>
+                              {roleOption.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleUpdateRole}
+                        disabled={isUpdatingRole || selectedRole === user.role}
+                        className="h-8 w-8 p-0"
+                      >
+                        {isUpdatingRole ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIsEditingRole(false);
+                          setSelectedRole(user.role);
+                        }}
+                        className="h-8 w-8 p-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default">{getRoleLabel(user.role)}</Badge>
+                      {canUpdateRole && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setIsEditingRole(true)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center justify-between py-2">
                   <span className="text-sm font-medium text-foreground">Superusuário</span>
                   <Badge variant={user.is_superuser ? "default" : "outline"}>
@@ -176,7 +262,7 @@ export default function UsuariosViewPage() {
               </CardContent>
             </Card>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-4">
               <Button
                 type="button"
                 variant="outline"

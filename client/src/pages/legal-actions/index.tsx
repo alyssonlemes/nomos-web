@@ -10,9 +10,14 @@ import { LegalActionService, LegalAction } from '@/services/legal-action.service
 import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 import { formatLegalStatus, formatActionType } from '@/utils/formats';
 import { SelectField } from '@/components/ui/select-field';
+import { canAccess, getCurrentRole } from '@/lib/rbac';
 
 export default function ProcessosPage() {
   const [, setLocation] = useLocation();
+  const currentRole = getCurrentRole();
+  const canReadLegalActions = canAccess(currentRole, 'legalActions.read');
+  const canWriteLegalActions = canAccess(currentRole, 'legalActions.write');
+  const shouldShowOwnDataNotice = currentRole === 'MEMBER' || currentRole === 'VIEWER';
   const [actions, setActions] = useState<LegalAction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -118,7 +123,7 @@ export default function ProcessosPage() {
     },
     {
       header: 'Ações',
-      cell: (row) => (
+      cell: (row) => canWriteLegalActions ? (
         <div className="flex items-center gap-2 justify-end">
           <Button
             variant="ghost"
@@ -156,11 +161,26 @@ export default function ProcessosPage() {
             }
           />
         </div>
+      ) : (
+        <div className="text-xs text-muted-foreground">Sem ações</div>
       ),
       headerClassName: 'text-right',
       className: 'text-right',
     },
   ];
+
+  if (!canReadLegalActions) {
+    return (
+      <div className="p-8 min-h-full">
+        <div className="max-w-3xl mx-auto">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>Você não tem permissão para acessar Processos.</AlertDescription>
+          </Alert>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 min-h-full">
@@ -170,11 +190,19 @@ export default function ProcessosPage() {
             <h1 className="text-3xl font-bold text-foreground mb-2">Processos</h1>
             <p className="text-muted-foreground">Gerencie as ações jurídicas da sua organização</p>
           </div>
-          <Button className="gap-2" onClick={() => setLocation('/legal-actions/novo')}>
-            <Plus className="w-4 h-4" />
-            Novo Processo
-          </Button>
+          {canWriteLegalActions && (
+            <Button className="gap-2" onClick={() => setLocation('/legal-actions/novo')}>
+              <Plus className="w-4 h-4" />
+              Novo Processo
+            </Button>
+          )}
         </div>
+
+        {shouldShowOwnDataNotice && (
+          <Alert className="mb-6">
+            <AlertDescription>Você vê apenas seus dados.</AlertDescription>
+          </Alert>
+        )}
 
         {/* Mensagens */}
         {error && (
@@ -227,10 +255,12 @@ export default function ProcessosPage() {
             ) : actions.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground mb-4">Nenhum processo encontrado</p>
-                <Button variant="outline" onClick={() => setLocation('/legal-actions/novo')} className="hover:bg-muted hover:text-foreground">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Adicionar Primeiro Processo
-                </Button>
+                {canWriteLegalActions && (
+                  <Button variant="outline" onClick={() => setLocation('/legal-actions/novo')} className="hover:bg-muted hover:text-foreground">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Adicionar Primeiro Processo
+                  </Button>
+                )}
               </div>
             ) : (
               <>

@@ -1,4 +1,5 @@
 import { AuthService } from './auth.service';
+import { UserRole } from '@/lib/rbac';
 
 interface RegisterUserRequest {
   email: string;
@@ -20,10 +21,15 @@ interface UpdateUserRequest {
   email?: string;
 }
 
+interface UpdateUserRoleRequest {
+  role: UserRole;
+}
+
 export interface UserResponse {
   id: number;
   email: string;
   full_name: string;
+  role: UserRole;
   organization_id: number | null;
   is_active: boolean;
   is_superuser: boolean;
@@ -55,10 +61,15 @@ export class UserService {
         throw new Error(error.detail || 'Erro ao obter dados do usuário');
       }
 
-      const data: UserResponse = await response.json();
+      const data = await response.json() as UserResponse & { role: string };
+      if (!['ADMIN', 'OWNER', 'MEMBER', 'VIEWER', 'ASSISTANT'].includes(data.role)) {
+        throw new Error('Role inválida retornada pelo servidor');
+      }
+      data.role = data.role as UserRole;
       
       // Armazenar dados do usuário no localStorage
       localStorage.setItem('user', JSON.stringify(data));
+      localStorage.setItem('userRole', data.role);
 
       return data;
     } catch (error) {
@@ -76,6 +87,7 @@ export class UserService {
 
   static clearStoredUser(): void {
     localStorage.removeItem('user');
+    localStorage.removeItem('userRole');
   }
 
   static async getUsers(skip: number = 0, limit: number = 100): Promise<UsersListResponse> {
@@ -199,10 +211,15 @@ export class UserService {
         throw new Error(error.detail || 'Erro ao atualizar dados do usuário');
       }
 
-      const data: UserResponse = await response.json();
+      const data = await response.json() as UserResponse & { role: string };
+      if (!['ADMIN', 'OWNER', 'MEMBER', 'VIEWER', 'ASSISTANT'].includes(data.role)) {
+        throw new Error('Role inválida retornada pelo servidor');
+      }
+      data.role = data.role as UserRole;
       
       // Atualizar dados do usuário no localStorage
       localStorage.setItem('user', JSON.stringify(data));
+      localStorage.setItem('userRole', data.role);
 
       return data;
     } catch (error) {
@@ -226,6 +243,36 @@ export class UserService {
       }
 
       return;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Erro de conexão com o servidor');
+    }
+  }
+
+  static async updateUserRole(userId: number, payload: UpdateUserRoleRequest): Promise<UserResponse> {
+    try {
+      const response = await AuthService.authenticatedFetch(
+        `${API_BASE_URL}/api/v1/users/${userId}/role`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        const error: ErrorResponse = await response.json();
+        throw new Error(error.detail || 'Erro ao atualizar role do usuário');
+      }
+
+      const data = await response.json() as UserResponse & { role: string };
+      if (!['ADMIN', 'OWNER', 'MEMBER', 'VIEWER', 'ASSISTANT'].includes(data.role)) {
+        throw new Error('Role inválida retornada pelo servidor');
+      }
+      data.role = data.role as UserRole;
+
+      return data;
     } catch (error) {
       if (error instanceof Error) {
         throw error;

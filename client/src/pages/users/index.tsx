@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Loader2, Eye, Trash2 } from 'lucide-react';
+import { Plus, Loader2, Eye, Trash2, Edit2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -18,6 +18,7 @@ import {
 import { DataTable, Column } from '@/components/ui/data-table';
 import { UserService, UserResponse } from '@/services/user.service';
 import { toast } from 'sonner';
+import { canAccess, getCurrentRole } from '@/lib/rbac';
 
 /**
  * Pagina de Usuarios/Funcionarios - Nomos
@@ -27,6 +28,9 @@ import { toast } from 'sonner';
 
 export default function UsuariosListPage() {
   const [, setLocation] = useLocation();
+  const currentRole = getCurrentRole();
+  const canManageInvites = canAccess(currentRole, 'invitations.manage');
+  const canEditUsers = canAccess(currentRole, 'users.write');
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -133,6 +137,23 @@ export default function UsuariosListPage() {
               <p>Visualizar usuário</p>
             </TooltipContent>
           </Tooltip>
+          {canEditUsers && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setLocation(`/usuarios/${user.id}/edit`)}
+                  className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Editar usuário</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -164,10 +185,12 @@ export default function UsuariosListPage() {
               Gerencie os funcionarios da sua organizacao
             </p>
           </div>
-          <Button className="gap-2" onClick={() => setLocation('/usuarios/novo')}>
-            <Plus className="w-4 h-4" />
-            Novo Usuario
-          </Button>
+          {canManageInvites && (
+            <Button className="gap-2" onClick={() => setLocation('/usuarios/novo')}>
+              <Plus className="w-4 h-4" />
+              Novo Usuario
+            </Button>
+          )}
         </div>
 
         {/* Mensagens de Erro */}
@@ -195,10 +218,12 @@ export default function UsuariosListPage() {
                 <p className="text-muted-foreground mb-4">
                   Nenhum usuário encontrado
                 </p>
-                <Button onClick={() => setLocation('/usuarios/novo')}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Convidar Primeiro Usuário
-                </Button>
+                {canManageInvites && (
+                  <Button onClick={() => setLocation('/usuarios/novo')}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Convidar Primeiro Usuário
+                  </Button>
+                )}
               </div>
             ) : (
               <DataTable
