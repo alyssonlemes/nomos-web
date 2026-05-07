@@ -29,6 +29,8 @@ import UsuariosList from "./pages/users/index";
 import UsuariosNew from "./pages/users/new";
 import UsuariosView from "./pages/users/view";
 import UsuariosEdit from "./pages/users/edit";
+import MeetingsList from "./pages/meetings/index";
+import MeetingsNew from "./pages/meetings/new";
 import Configuracoes from "./pages/Configuracoes";
 import OnboardingOrganization from "./pages/profile/OnboardingOrganization";
 import Jurimetria from "./pages/jurimetry";
@@ -39,17 +41,23 @@ import { UserRole } from "./lib/rbac";
  * Componente ProtectedRoute - Verifica se usuário tem organização
  * Se não tiver, redireciona para onboarding
  */
-function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: UserRole[] }) {
+function ProtectedRoute({
+  children,
+  allowedRoles,
+}: {
+  children: React.ReactNode;
+  allowedRoles?: UserRole[];
+}) {
   const user = UserService.getStoredUser();
   const userRole = user?.role;
 
   if (!user || !user.organization_id) {
-    window.location.href = '/onboarding-organization';
+    window.location.href = "/onboarding-organization";
     return null;
   }
 
   if (allowedRoles && (!userRole || !allowedRoles.includes(userRole))) {
-    window.location.href = '/home';
+    window.location.href = "/home";
     return null;
   }
 
@@ -62,9 +70,12 @@ function Router() {
       {/* Rotas sem Layout (Login/Register) */}
       <Route path={"/login"} component={Login} />
       <Route path={"/register"} component={Register} />
-      <Route path={"/onboarding-organization"} component={OnboardingOrganization} />
+      <Route
+        path={"/onboarding-organization"}
+        component={OnboardingOrganization}
+      />
       <Route path={"/"} component={Login} />
-      
+
       {/* Rotas com Layout (Dashboard e páginas internas) */}
       <Route path={"/home"}>
         <ProtectedRoute>
@@ -91,6 +102,20 @@ function Router() {
         <ProtectedRoute>
           <Layout>
             <ClientsEdit />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/meetings">
+        <ProtectedRoute>
+          <Layout>
+            <MeetingsList />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/meetings/novo">
+        <ProtectedRoute>
+          <Layout>
+            <MeetingsNew />
           </Layout>
         </ProtectedRoute>
       </Route>
@@ -227,7 +252,7 @@ function Router() {
           </Layout>
         </ProtectedRoute>
       </Route>
-      
+
       {/* Rotas de erro */}
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
@@ -243,9 +268,7 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-      >
+      <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
           <TokenExpirationAlert />

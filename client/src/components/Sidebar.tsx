@@ -1,8 +1,20 @@
-import { useState } from 'react';
-import { useLocation } from 'wouter';
-import { Menu, X, ChevronDown, Users, FileText, Settings, LogOut, Grid3x3, UserCog, Bot } from 'lucide-react';
-import { AuthService } from '@/services/auth.service';
-import { UserRole, getCurrentRole } from '@/lib/rbac';
+import { useState } from "react";
+import { useLocation } from "wouter";
+import {
+  Menu,
+  X,
+  ChevronDown,
+  Users,
+  FileText,
+  Settings,
+  LogOut,
+  Grid3x3,
+  UserCog,
+  Bot,
+  Calendar,
+} from "lucide-react";
+import { AuthService } from "@/services/auth.service";
+import { UserRole, getCurrentRole } from "@/lib/rbac";
 
 /**
  * Componente Sidebar - Nomos
@@ -29,83 +41,109 @@ export default function Sidebar() {
   const [location, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(['clientes']);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(["clientes"]);
   const currentRole = getCurrentRole();
 
   const menuItems: MenuItem[] = [
     {
-      id: 'home',
-      label: 'Home',
+      id: "home",
+      label: "Home",
       icon: <Grid3x3 className="w-5 h-5" />,
-      allowedRoles: ['ADMIN', 'OWNER', 'MEMBER', 'VIEWER', 'ASSISTANT'],
-      href: '/home',
+      allowedRoles: ["ADMIN", "OWNER", "MEMBER", "VIEWER", "ASSISTANT"],
+      href: "/home",
     },
     {
-      id: 'clientes',
-      label: 'Clientes',
+      id: "clientes",
+      label: "Clientes",
       icon: <Users className="w-5 h-5" />,
-      allowedRoles: ['ADMIN', 'OWNER', 'MEMBER', 'VIEWER', 'ASSISTANT'],
-      href: '/clientes',
+      allowedRoles: ["ADMIN", "OWNER", "MEMBER", "VIEWER", "ASSISTANT"],
+      href: "/clientes",
       submenu: [
-        { id: 'clientes-lista', label: 'Lista de Clientes', href: '/clientes' },
+        { id: "clientes-lista", label: "Lista de Clientes", href: "/clientes" },
       ],
     },
     {
-      id: 'jurimetria',
-      label: 'Jurimetria',
+      id: "jurimetria",
+      label: "Jurimetria",
       icon: <Bot className="w-5 h-5" />,
-      allowedRoles: ['ADMIN', 'OWNER', 'MEMBER', 'VIEWER'],
-      href: '/jurimetria',
+      allowedRoles: ["ADMIN", "OWNER", "MEMBER", "VIEWER"],
+      href: "/jurimetria",
     },
     {
-      id: 'processos',
-      label: 'Processos',
+      id: "processos",
+      label: "Processos",
       icon: <FileText className="w-5 h-5" />,
-      allowedRoles: ['ADMIN', 'OWNER', 'MEMBER', 'VIEWER'],
-      href: '/legal-actions',
+      allowedRoles: ["ADMIN", "OWNER", "MEMBER", "VIEWER"],
+      href: "/legal-actions",
       submenu: [
-        { id: 'processos-lista', label: 'Lista de Processos', href: '/legal-actions' },
-        { id: 'tipos-acoes', label: 'Tipos de Ações', href: '/legal-action-types' },
-        { id: 'status-acoes', label: 'Status de Ações', href: '/legal-action-statuses' },
+        {
+          id: "processos-lista",
+          label: "Lista de Processos",
+          href: "/legal-actions",
+        },
+        {
+          id: "tipos-acoes",
+          label: "Tipos de Ações",
+          href: "/legal-action-types",
+        },
+        {
+          id: "status-acoes",
+          label: "Status de Ações",
+          href: "/legal-action-statuses",
+        },
       ],
     },
     {
-      id: 'usuarios',
-      label: 'Usuários',
-      icon: <UserCog className="w-5 h-5" />,
-      allowedRoles: ['ADMIN', 'OWNER', 'MEMBER'],
-      href: '/usuarios',
+      id: "meetings",
+      label: "Reuniões",
+      icon: <Calendar className="w-5 h-5" />,
+      allowedRoles: ["ADMIN", "OWNER", "MEMBER", "VIEWER", "ASSISTANT"],
+      href: "/meetings",
       submenu: [
-        { id: 'usuarios-lista', label: 'Lista de Funcionários', href: '/usuarios' },
+        { id: "meetings-list", label: "Minhas Reuniões", href: "/meetings" },
+      ],
+    },
+    {
+      id: "usuarios",
+      label: "Usuários",
+      icon: <UserCog className="w-5 h-5" />,
+      allowedRoles: ["ADMIN", "OWNER", "MEMBER"],
+      href: "/usuarios",
+      submenu: [
+        {
+          id: "usuarios-lista",
+          label: "Lista de Funcionários",
+          href: "/usuarios",
+        },
       ],
     },
   ];
 
   const secondaryMenuItems: MenuItem[] = [
     {
-      id: 'configuracoes',
-      label: 'Configurações',
+      id: "configuracoes",
+      label: "Configurações",
       icon: <Settings className="w-5 h-5" />,
-      href: '/configuracoes',
+      href: "/configuracoes",
     },
     {
-      id: 'sair',
-      label: 'Sair',
+      id: "sair",
+      label: "Sair",
       icon: <LogOut className="w-5 h-5" />,
-      href: '/login',
+      href: "/login",
     },
   ];
 
   const toggleMenu = (menuId: string) => {
-    setExpandedMenus((prev) =>
+    setExpandedMenus(prev =>
       prev.includes(menuId)
-        ? prev.filter((id) => id !== menuId)
+        ? prev.filter(id => id !== menuId)
         : [...prev, menuId]
     );
   };
 
   const handleNavigate = (href: string) => {
-    if (href === '/login') {
+    if (href === "/login") {
       AuthService.logout();
     }
     setLocation(href);
@@ -116,17 +154,23 @@ export default function Sidebar() {
 
   // Determinar o item ativo baseado na localização atual
   const getActiveItem = () => {
-    if (location === '/home') return 'home';
-    if (location.startsWith('/clientes')) return 'clientes';
-    if (location.startsWith('/legal-actions') || location.startsWith('/legal-action-types') || location.startsWith('/legal-action-statuses')) return 'processos';
-    if (location.startsWith('/jurimetria')) return 'jurimetria';
-    if (location.startsWith('/usuarios')) return 'usuarios';
-    if (location.startsWith('/profile')) return 'perfil';
-    return '';
+    if (location === "/home") return "home";
+    if (location.startsWith("/clientes")) return "clientes";
+    if (location.startsWith("/meetings")) return "meetings";
+    if (location.startsWith("/jurimetria")) return "jurimetria";
+    if (
+      location.startsWith("/legal-actions") ||
+      location.startsWith("/legal-action-types") ||
+      location.startsWith("/legal-action-statuses")
+    )
+      return "processos";
+    if (location.startsWith("/usuarios")) return "usuarios";
+    if (location.startsWith("/profile")) return "perfil";
+    return "";
   };
 
   const activeItem = getActiveItem();
-  const visibleMenuItems = menuItems.filter((item) => {
+  const visibleMenuItems = menuItems.filter(item => {
     if (!item.allowedRoles) return true;
     if (!currentRole) return false;
     return item.allowedRoles.includes(currentRole);
@@ -160,20 +204,22 @@ export default function Sidebar() {
           fixed lg:relative top-0 left-0 h-screen z-40
           bg-sidebar border-r border-sidebar-border
           transition-all duration-300 ease-in-out
-          ${isOpen ? 'w-72' : 'w-24'}
-          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          ${isOpen ? "w-72" : "w-24"}
+          ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
           flex flex-col overflow-y-auto
         `}
       >
         {/* Header */}
         <div className="flex items-center justify-between h-20 px-6 border-b border-sidebar-border flex-shrink-0">
           {isOpen && (
-            <h1 className="text-2xl font-bold text-sidebar-foreground">Nomos</h1>
+            <h1 className="text-2xl font-bold text-sidebar-foreground">
+              Nomos
+            </h1>
           )}
           <button
             onClick={() => setIsOpen(!isOpen)}
             className="hidden lg:block p-1 hover:bg-sidebar-accent rounded-none transition-colors"
-            title={isOpen ? 'Recolher' : 'Expandir'}
+            title={isOpen ? "Recolher" : "Expandir"}
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -181,7 +227,7 @@ export default function Sidebar() {
 
         {/* Menu Principal */}
         <nav className="flex-1 px-4 py-6 space-y-3">
-          {visibleMenuItems.map((item) => {
+          {visibleMenuItems.map(item => {
             const isActive = activeItem === item.id;
             const isExpanded = isMenuExpanded(item.id);
             const hasSubmenu = item.submenu && item.submenu.length > 0;
@@ -201,10 +247,10 @@ export default function Sidebar() {
                     transition-all duration-200 font-medium text-sm
                     ${
                       isActive
-                        ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm border-l-4 border-sidebar-primary'
-                        : 'text-sidebar-foreground hover:bg-muted'
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm border-l-4 border-sidebar-primary"
+                        : "text-sidebar-foreground hover:bg-muted"
                     }
-                    ${!isOpen && 'justify-center px-0'}
+                    ${!isOpen && "justify-center px-0"}
                   `}
                   title={!isOpen ? item.label : undefined}
                 >
@@ -215,7 +261,7 @@ export default function Sidebar() {
                       {hasSubmenu && (
                         <ChevronDown
                           className={`w-4 h-4 transition-transform ${
-                            isExpanded ? 'rotate-180' : ''
+                            isExpanded ? "rotate-180" : ""
                           }`}
                         />
                       )}
@@ -226,7 +272,7 @@ export default function Sidebar() {
                 {/* Submenu */}
                 {isOpen && hasSubmenu && isExpanded && item.submenu && (
                   <div className="mt-2 ml-4 space-y-2 border-l-2 border-sidebar-border pl-3">
-                    {item.submenu!.map((subitem) => (
+                    {item.submenu!.map(subitem => (
                       <button
                         key={subitem.id}
                         onClick={() => handleNavigate(subitem.href)}
@@ -248,8 +294,8 @@ export default function Sidebar() {
 
         {/* Menu Secundário */}
         <div className="border-t border-sidebar-border px-4 py-4 space-y-3 flex-shrink-0">
-          {secondaryMenuItems.map((item) => {
-            const isDanger = item.id === 'sair';
+          {secondaryMenuItems.map(item => {
+            const isDanger = item.id === "sair";
 
             return (
               <button
@@ -260,15 +306,17 @@ export default function Sidebar() {
                   transition-all duration-200 font-medium text-sm
                   ${
                     isDanger
-                      ? 'text-destructive hover:bg-destructive hover:text-destructive-foreground'
-                      : 'text-sidebar-foreground hover:bg-muted'
+                      ? "text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      : "text-sidebar-foreground hover:bg-muted"
                   }
-                  ${!isOpen && 'justify-center px-0'}
+                  ${!isOpen && "justify-center px-0"}
                 `}
                 title={!isOpen ? item.label : undefined}
               >
                 <span className="flex-shrink-0">{item.icon}</span>
-                {isOpen && <span className="flex-1 text-left">{item.label}</span>}
+                {isOpen && (
+                  <span className="flex-1 text-left">{item.label}</span>
+                )}
               </button>
             );
           })}
