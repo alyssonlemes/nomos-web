@@ -31,6 +31,9 @@ import UsuariosView from "./pages/users/view";
 import UsuariosEdit from "./pages/users/edit";
 import MeetingsList from "./pages/meetings/index";
 import MeetingsNew from "./pages/meetings/new";
+import ActivitiesPage from "./pages/activities/index";
+import ActivityFormPage from "./pages/activities/form";
+import ColumnsManagerPage from "./pages/activities/columns-manager";
 import Configuracoes from "./pages/Configuracoes";
 import OnboardingOrganization from "./pages/profile/OnboardingOrganization";
 import Jurimetria from "./pages/jurimetry";
@@ -75,7 +78,6 @@ function Router() {
         component={OnboardingOrganization}
       />
       <Route path={"/"} component={Login} />
-
       {/* Rotas com Layout (Dashboard e páginas internas) */}
       <Route path={"/home"}>
         <ProtectedRoute>
@@ -116,6 +118,34 @@ function Router() {
         <ProtectedRoute>
           <Layout>
             <MeetingsNew />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path={"/activities"}>
+        <ProtectedRoute>
+          <Layout>
+            <ActivitiesPage />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/activities/novo">
+        <ProtectedRoute>
+          <Layout>
+            <ActivityFormPage />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/activities/columns-manager">
+        <ProtectedRoute>
+          <Layout>
+            <ColumnsManagerPage />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/activities/:id">
+        <ProtectedRoute>
+          <Layout>
+            <ActivityFormPage />
           </Layout>
         </ProtectedRoute>
       </Route>
@@ -252,7 +282,6 @@ function Router() {
           </Layout>
         </ProtectedRoute>
       </Route>
-
       {/* Rotas de erro */}
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />

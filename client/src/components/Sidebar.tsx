@@ -12,6 +12,7 @@ import {
   UserCog,
   Bot,
   Calendar,
+  CheckSquare,
 } from "lucide-react";
 import { AuthService } from "@/services/auth.service";
 import { UserRole, getCurrentRole } from "@/lib/rbac";
@@ -104,6 +105,16 @@ export default function Sidebar() {
       ],
     },
     {
+      id: "activities",
+      label: "Atividades",
+      icon: <CheckSquare className="w-5 h-5" />,
+      allowedRoles: ["ADMIN", "OWNER", "MEMBER", "VIEWER", "ASSISTANT"],
+      href: "/activities",
+      submenu: [
+        { id: "activities-list", label: "Meu Kanban", href: "/activities" },
+      ],
+    },
+    {
       id: "usuarios",
       label: "Usuários",
       icon: <UserCog className="w-5 h-5" />,
@@ -157,6 +168,7 @@ export default function Sidebar() {
     if (location === "/home") return "home";
     if (location.startsWith("/clientes")) return "clientes";
     if (location.startsWith("/meetings")) return "meetings";
+    if (location.startsWith("/activities")) return "activities";
     if (location.startsWith("/jurimetria")) return "jurimetria";
     if (
       location.startsWith("/legal-actions") ||
