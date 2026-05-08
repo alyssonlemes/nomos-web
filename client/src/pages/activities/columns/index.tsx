@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -17,13 +15,15 @@ import {
   Edit2,
   Trash2,
   GripVertical,
-  X,
   ChevronLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { ActivityService } from "@/services/activity.service";
 import { UserService } from "@/services/user.service";
+
+import ColumnsNew from "./new";
+import ColumnsEdit, { ColumnData as ColumnDataForEdit } from "./edit";
 
 interface ColumnData {
   id?: number;
@@ -35,17 +35,13 @@ interface ColumnData {
 }
 
 export default function ColumnsManagerPage() {
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const [columns, setColumns] = useState<ColumnData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [orgId, setOrgId] = useState<number | null>(null);
-  const [editingId, setEditingId] = useState<number | undefined>(undefined);
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    color: "#f3f4f6",
-  });
+  const [showNew, setShowNew] = useState(false);
+  const [editingColumn, setEditingColumn] = useState<ColumnData | null>(null);
   const [draggedColumn, setDraggedColumn] = useState<ColumnData | null>(null);
 
   useEffect(() => {
@@ -70,8 +66,7 @@ export default function ColumnsManagerPage() {
       );
       setColumns(sorted);
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Erro ao carregar colunas";
+      const msg = err instanceof Error ? err.message : "Erro ao carregar colunas";
       setError(msg);
       toast.error(msg);
       setColumns([]);
@@ -81,58 +76,13 @@ export default function ColumnsManagerPage() {
   };
 
   const handleAddColumn = () => {
-    setEditingId(undefined);
-    setFormData({ name: "", color: "#f3f4f6" });
-    setShowForm(true);
+    setEditingColumn(null);
+    setShowNew(true);
   };
 
   const handleEditColumn = (column: ColumnData) => {
-    setEditingId(column.id);
-    setFormData({
-      name: column.name,
-      color: column.color,
-    });
-    setShowForm(true);
-  };
-
-  const handleSaveColumn = async () => {
-    if (!formData.name.trim()) {
-      toast.error("Nome da coluna é obrigatório");
-      return;
-    }
-    if (!orgId) return;
-
-    try {
-      if (editingId) {
-        const existing = columns.find(c => c.id === editingId);
-        // Atualizar coluna existente
-        await ActivityService.updateColumn(
-          editingId,
-          orgId,
-          formData.name,
-          columns.findIndex(c => c.id === editingId) + 1,
-          formData.color,
-          existing?.status,
-          existing?.is_default ?? false
-        );
-        toast.success("Coluna atualizada");
-      } else {
-        // Criar nova coluna
-        await ActivityService.createColumn(
-          orgId,
-          formData.name,
-          columns.length + 1,
-          formData.color,
-          false
-        );
-        toast.success("Coluna criada");
-      }
-      setShowForm(false);
-      if (orgId) await loadColumns(orgId);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erro ao salvar coluna";
-      toast.error(msg);
-    }
+    setShowNew(false);
+    setEditingColumn(column);
   };
 
   const handleDeleteColumn = async (
@@ -171,7 +121,6 @@ export default function ColumnsManagerPage() {
     }
 
     try {
-      // Reordenar localmente primeiro
       const newColumns = [...columns];
       const draggedIndex = newColumns.findIndex(c => c.id === draggedColumn.id);
       const targetIndex = newColumns.findIndex(c => c.id === targetColumn.id);
@@ -180,14 +129,12 @@ export default function ColumnsManagerPage() {
         const [removed] = newColumns.splice(draggedIndex, 1);
         newColumns.splice(targetIndex, 0, removed);
 
-        // Atualizar order_index
         const updated = newColumns.map((col, idx) => ({
           ...col,
           order_index: idx + 1,
         }));
         setColumns(updated);
 
-        // Sincronizar com backend
         if (orgId && draggedColumn.id) {
           await ActivityService.updateColumn(
             draggedColumn.id,
@@ -213,7 +160,6 @@ export default function ColumnsManagerPage() {
   return (
     <div className="p-8 min-h-full bg-gray-50">
       <div className="max-w-3xl mx-auto">
-        {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
@@ -275,7 +221,7 @@ export default function ColumnsManagerPage() {
                       )}
 
                       <div
-                        className={`w-6 h-6 rounded border-2 border-gray-300 flex-shrink-0`}
+                        className="w-6 h-6 rounded border-2 border-gray-300 flex-shrink-0"
                         style={{ backgroundColor: column.color }}
                       />
 
@@ -284,7 +230,7 @@ export default function ColumnsManagerPage() {
                           {column.name}
                         </h3>
                         <p className="text-sm text-muted-foreground">
-                          {column.status && `Status: ${column.status}`}{" "}
+                          {column.status && `Status: ${column.status}`} {" "}
                           {column.is_default && "(Padrão)"}
                         </p>
                       </div>
@@ -315,62 +261,28 @@ export default function ColumnsManagerPage() {
           </div>
         )}
 
-        {/* Form Modal */}
-        {showForm && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <Card className="w-96">
-              <CardHeader>
-                <CardTitle>
-                  {editingId ? "Editar Coluna" : "Nova Coluna"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Nome da Coluna
-                  </label>
-                  <Input
-                    value={formData.name}
-                    onChange={e =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    placeholder="Ex: Revisão, Bloqueado, etc"
-                  />
-                </div>
+        {orgId && showNew && (
+          <ColumnsNew
+            orgId={orgId}
+            nextOrderIndex={columns.length + 1}
+            onClose={() => setShowNew(false)}
+            onSaved={() => loadColumns(orgId)}
+          />
+        )}
 
-                <div>
-                  <label className="block text-sm font-medium mb-2">Cor</label>
-                  <div className="flex gap-3">
-                    <input
-                      type="color"
-                      value={formData.color}
-                      onChange={e =>
-                        setFormData({ ...formData, color: e.target.value })
-                      }
-                      className="w-12 h-10 border rounded cursor-pointer"
-                    />
-                    <div
-                      className="flex-1 border rounded"
-                      style={{ backgroundColor: formData.color }}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button onClick={handleSaveColumn} className="flex-1">
-                    Salvar
-                  </Button>
-                  <Button
-                    onClick={() => setShowForm(false)}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+        {orgId && editingColumn && (
+          <ColumnsEdit
+            orgId={orgId}
+            column={editingColumn as ColumnDataForEdit}
+            position={
+              Math.max(
+                1,
+                columns.findIndex(c => c.id === editingColumn.id) + 1
+              )
+            }
+            onClose={() => setEditingColumn(null)}
+            onSaved={() => loadColumns(orgId)}
+          />
         )}
       </div>
     </div>

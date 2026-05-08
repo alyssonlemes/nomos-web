@@ -119,7 +119,6 @@ export default function ActivitiesPage() {
     try {
       const customColumns = await ActivityService.listColumns(organizationId);
       if (customColumns && customColumns.length > 0) {
-        // Mapear colunas do backend para incluir 'label' baseado em 'name'
         const mappedColumns: KanbanColumn[] = customColumns.map((col: any) => ({
           id: col.id,
           status: col.status || `custom_${col.id}`,
@@ -165,8 +164,7 @@ export default function ActivitiesPage() {
       toast.success("Atividade movida");
       if (orgId) await loadKanban(orgId);
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Erro ao mover atividade";
+      const msg = err instanceof Error ? err.message : "Erro ao mover atividade";
       toast.error(msg);
     } finally {
       setDraggedActivity(null);
@@ -185,7 +183,6 @@ export default function ActivitiesPage() {
   return (
     <div className="p-8 min-h-full bg-gray-50">
       <div className="max-w-full mx-auto">
-        {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
@@ -216,7 +213,6 @@ export default function ActivitiesPage() {
           </div>
         </div>
 
-        {/* Filters */}
         <div className="mb-6 flex gap-4">
           <div className="flex gap-2">
             <Button
@@ -288,9 +284,7 @@ export default function ActivitiesPage() {
                         <ActivityCard
                           key={activity.id}
                           activity={activity}
-                          onEdit={() =>
-                            setLocation(`/activities/${activity.id}`)
-                          }
+                          onEdit={() => setLocation(`/activities/${activity.id}`)}
                           onDelete={() => handleDelete(activity.id)}
                           onDragStart={() => handleDragStart(activity)}
                         />

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,10 +66,14 @@ interface ActivityColumnOption {
   label: string;
 }
 
-export default function ActivityFormPage() {
+export default function ActivityEditPage() {
   const [, setLocation] = useLocation();
   const { id } = useParams();
-  const isEditing = !!id;
+  const activityId = useMemo(() => {
+    if (!id) return null;
+    const parsed = parseInt(id);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [id]);
 
   const [formData, setFormData] = useState<FormData>({
     title: "",
@@ -91,48 +95,72 @@ export default function ActivityFormPage() {
   const [statusOptions, setStatusOptions] = useState<ActivityColumnOption[]>(
     []
   );
+  const [responsibleOpen, setResponsibleOpen] = useState(false);
+  const [responsibleSearch, setResponsibleSearch] = useState("");
   const [participantsOpen, setParticipantsOpen] = useState(false);
   const [participantSearch, setParticipantSearch] = useState("");
-  const [isLoading, setIsLoading] = useState(isEditing);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const loadUsersAndColumns = async () => {
+    const bootstrap = async () => {
       try {
+        setIsLoading(true);
         const user = UserService.getStoredUser();
         if (!user?.organization_id) {
           setError("Organização não encontrada");
           return;
         }
+        if (!activityId) {
+          setError("ID da atividade inválido");
+          return;
+        }
 
-        const resp = await UserService.getUsers(0, 500);
+        const [resp, cols, activity] = await Promise.all([
+          UserService.getUsers(0, 500),
+          ActivityService.listColumns(user.organization_id),
+          ActivityService.getActivity(activityId),
+        ]);
+
         setUsers(resp.users || []);
 
-        const cols = await ActivityService.listColumns(user.organization_id);
         const options: ActivityColumnOption[] = (cols || [])
-          .filter((col: any) => !!col.status)
-          .map((col: any) => ({ value: col.status, label: col.name }));
-
+          .map((col: any) => {
+            const value = col.status || (col.id ? `custom_${col.id}` : "");
+            return { value, label: col.name };
+          })
+          .filter((opt: ActivityColumnOption) => !!opt.value);
         setStatusOptions(options);
 
-        if (options.length > 0) {
-          setFormData(prev => {
-            const hasCurrent = options.some(opt => opt.value === prev.status);
-            return hasCurrent ? prev : { ...prev, status: options[0].value };
-          });
-        }
+        setFormData({
+          title: activity.title || "",
+          description: activity.description || "",
+          type: (activity.type as "task" | "event") || "task",
+          responsible_id: activity.responsible_id || null,
+          priority: (activity.priority as any) || "medium",
+          status: (activity.status as any) || (options[0]?.value ?? ""),
+          start_date: activity.start_date || "",
+          end_date: activity.end_date || "",
+          event_time: activity.event_time || "",
+          location_or_link: activity.location_or_link || "",
+          estimated_hours: activity.estimated_hours || null,
+          observations: activity.observations || "",
+          participant_ids:
+            activity.participants?.map((p: { id: number }) => p.id) || [],
+        });
       } catch (err) {
+        const msg = err instanceof Error ? err.message : "Erro ao carregar atividade";
+        setError(msg);
+        toast.error(msg);
         setStatusOptions([]);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    loadUsersAndColumns();
-
-    if (isEditing && id) {
-      loadActivity(parseInt(id));
-    }
-  }, [isEditing, id]);
+    bootstrap();
+  }, [activityId]);
 
   const filteredUsers = users.filter(user => {
     const query = participantSearch.trim().toLowerCase();
@@ -147,6 +175,19 @@ export default function ActivityFormPage() {
     formData.participant_ids.includes(user.id)
   );
 
+  const selectedResponsibleUser = formData.responsible_id
+    ? users.find(u => u.id === formData.responsible_id)
+    : null;
+
+  const filteredResponsibleUsers = users.filter(user => {
+    const query = responsibleSearch.trim().toLowerCase();
+    if (!query) return true;
+
+    return [user.full_name, user.email]
+      .filter(Boolean)
+      .some(value => String(value).toLowerCase().includes(query));
+  });
+
   const handleParticipantToggle = (userId: number) => {
     setFormData(prev => ({
       ...prev,
@@ -154,35 +195,6 @@ export default function ActivityFormPage() {
         ? prev.participant_ids.filter(id => id !== userId)
         : [...prev.participant_ids, userId],
     }));
-  };
-
-  const loadActivity = async (activityId: number) => {
-    try {
-      setIsLoading(true);
-      const activity: Activity = await ActivityService.getActivity(activityId);
-      setFormData({
-        title: activity.title || "",
-        description: activity.description || "",
-        type: (activity.type as "task" | "event") || "task",
-        responsible_id: activity.responsible_id || null,
-        priority: (activity.priority as any) || "medium",
-        status: (activity.status as any) || "",
-        start_date: activity.start_date || "",
-        end_date: activity.end_date || "",
-        event_time: activity.event_time || "",
-        location_or_link: activity.location_or_link || "",
-        estimated_hours: activity.estimated_hours || null,
-        observations: activity.observations || "",
-        participant_ids: activity.participants?.map(p => p.id) || [],
-      });
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Erro ao carregar atividade";
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -198,6 +210,7 @@ export default function ActivityFormPage() {
 
       const user = UserService.getStoredUser();
       if (!user?.organization_id) throw new Error("Organização não encontrada");
+      if (!activityId) throw new Error("ID da atividade inválido");
 
       const payload = {
         ...formData,
@@ -205,13 +218,8 @@ export default function ActivityFormPage() {
         participant_ids: formData.participant_ids,
       };
 
-      if (isEditing && id) {
-        await ActivityService.updateActivity(parseInt(id), payload);
-        toast.success("Atividade atualizada");
-      } else {
-        await ActivityService.createActivity(payload);
-        toast.success("Atividade criada");
-      }
+      await ActivityService.updateActivity(activityId, payload);
+      toast.success("Atividade atualizada");
 
       setLocation("/activities");
     } catch (err) {
@@ -242,12 +250,8 @@ export default function ActivityFormPage() {
           >
             <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
           </Button>
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            {isEditing ? "Editar Atividade" : "Nova Atividade"}
-          </h1>
-          <p className="text-muted-foreground">
-            {isEditing ? "Atualize os detalhes" : "Crie uma tarefa ou evento"}
-          </p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Editar Atividade</h1>
+          <p className="text-muted-foreground">Atualize os detalhes</p>
         </div>
 
         {error && (
@@ -264,7 +268,6 @@ export default function ActivityFormPage() {
               <CardDescription>Informações básicas</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Type */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Tipo
@@ -275,7 +278,7 @@ export default function ActivityFormPage() {
                       type="radio"
                       value="task"
                       checked={formData.type === "task"}
-                      onChange={e => setFormData({ ...formData, type: "task" })}
+                      onChange={() => setFormData({ ...formData, type: "task" })}
                     />
                     <span>Tarefa</span>
                   </label>
@@ -284,16 +287,13 @@ export default function ActivityFormPage() {
                       type="radio"
                       value="event"
                       checked={formData.type === "event"}
-                      onChange={e =>
-                        setFormData({ ...formData, type: "event" })
-                      }
+                      onChange={() => setFormData({ ...formData, type: "event" })}
                     />
                     <span>Evento</span>
                   </label>
                 </div>
               </div>
 
-              {/* Title */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Título <span className="text-destructive">*</span>
@@ -307,7 +307,6 @@ export default function ActivityFormPage() {
                 />
               </div>
 
-              {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Descrição
@@ -322,7 +321,6 @@ export default function ActivityFormPage() {
                 />
               </div>
 
-              {/* Priority & Status */}
               <div className="grid grid-cols-2 gap-4">
                 <SelectField
                   id="priority"
@@ -360,7 +358,6 @@ export default function ActivityFormPage() {
                 />
               </div>
 
-              {/* Dates */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
@@ -388,40 +385,105 @@ export default function ActivityFormPage() {
                 </div>
               </div>
 
-              {/* Responsible */}
-              <SelectField
-                id="responsible_id"
-                label="Responsável"
-                value={
-                  formData.responsible_id ? String(formData.responsible_id) : ""
-                }
-                onChange={e =>
-                  setFormData({
-                    ...formData,
-                    responsible_id:
-                      e.target.value && e.target.value !== "__none__"
-                        ? parseInt(e.target.value)
-                        : null,
-                  })
-                }
-                options={[
-                  { value: "__none__", label: "Sem responsável" },
-                  ...users.map(user => ({
-                    value: String(user.id),
-                    label: user.full_name || user.email || `ID ${user.id}`,
-                  })),
-                ]}
-              />
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Responsável
+                </label>
+                <Popover open={responsibleOpen} onOpenChange={setResponsibleOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={responsibleOpen}
+                      className={cn(
+                        "w-full justify-between font-normal hover:bg-muted hover:text-foreground",
+                        !selectedResponsibleUser && "text-muted-foreground"
+                      )}
+                    >
+                      {selectedResponsibleUser
+                        ? selectedResponsibleUser.full_name ||
+                          selectedResponsibleUser.email ||
+                          `ID ${selectedResponsibleUser.id}`
+                        : "Sem responsável"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[var(--radix-popover-trigger-width)] p-0"
+                    align="start"
+                  >
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        placeholder="Buscar por nome ou e-mail"
+                        value={responsibleSearch}
+                        onValueChange={setResponsibleSearch}
+                      />
+                      <CommandList>
+                        <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="__none__"
+                            onSelect={() => {
+                              setFormData(prev => ({
+                                ...prev,
+                                responsible_id: null,
+                              }));
+                              setResponsibleOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                !selectedResponsibleUser ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <span>Sem responsável</span>
+                          </CommandItem>
 
-              {/* Participants (Multiple) */}
+                          {filteredResponsibleUsers.map(user => {
+                            const label = user.full_name || user.email || `ID ${user.id}`;
+                            const isSelected = formData.responsible_id === user.id;
+
+                            return (
+                              <CommandItem
+                                key={user.id}
+                                value={label}
+                                onSelect={() => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    responsible_id: user.id,
+                                  }));
+                                  setResponsibleOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    isSelected ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <span>{label}</span>
+                                {user.email && user.full_name ? (
+                                  <span className="ml-2 text-xs text-muted-foreground">
+                                    {user.email}
+                                  </span>
+                                ) : null}
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Participantes
                 </label>
-                <Popover
-                  open={participantsOpen}
-                  onOpenChange={setParticipantsOpen}
-                >
+                <Popover open={participantsOpen} onOpenChange={setParticipantsOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       type="button"
@@ -430,12 +492,13 @@ export default function ActivityFormPage() {
                       aria-expanded={participantsOpen}
                       className={cn(
                         "w-full justify-between font-normal hover:bg-muted hover:text-foreground",
-                        formData.participant_ids.length === 0 &&
-                          "text-muted-foreground"
+                        formData.participant_ids.length === 0 && "text-muted-foreground"
                       )}
                     >
                       {formData.participant_ids.length > 0
-                        ? `${formData.participant_ids.length} participante${formData.participant_ids.length > 1 ? "s" : ""} selecionado${formData.participant_ids.length > 1 ? "s" : ""}`
+                        ? `${formData.participant_ids.length} participante${
+                            formData.participant_ids.length > 1 ? "s" : ""
+                          } selecionado${formData.participant_ids.length > 1 ? "s" : ""}`
                         : "Selecione participantes"}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -454,18 +517,14 @@ export default function ActivityFormPage() {
                         <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
                         <CommandGroup>
                           {filteredUsers.map(user => {
-                            const label =
-                              user.full_name || user.email || `ID ${user.id}`;
-                            const isSelected =
-                              formData.participant_ids.includes(user.id);
+                            const label = user.full_name || user.email || `ID ${user.id}`;
+                            const isSelected = formData.participant_ids.includes(user.id);
 
                             return (
                               <CommandItem
                                 key={user.id}
                                 value={label}
-                                onSelect={() =>
-                                  handleParticipantToggle(user.id)
-                                }
+                                onSelect={() => handleParticipantToggle(user.id)}
                               >
                                 <Check
                                   className={cn(
@@ -506,45 +565,41 @@ export default function ActivityFormPage() {
                 )}
               </div>
 
-              {/* Event-specific fields */}
               {formData.type === "event" && (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        Horário do Evento
-                      </label>
-                      <Input
-                        type="time"
-                        value={formData.event_time}
-                        onChange={e =>
-                          setFormData({
-                            ...formData,
-                            event_time: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        Local / Link
-                      </label>
-                      <Input
-                        value={formData.location_or_link}
-                        onChange={e =>
-                          setFormData({
-                            ...formData,
-                            location_or_link: e.target.value,
-                          })
-                        }
-                        placeholder="Sala 1 ou https://zoom.us/..."
-                      />
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Horário do Evento
+                    </label>
+                    <Input
+                      type="time"
+                      value={formData.event_time}
+                      onChange={e =>
+                        setFormData({
+                          ...formData,
+                          event_time: e.target.value,
+                        })
+                      }
+                    />
                   </div>
-                </>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Local / Link
+                    </label>
+                    <Input
+                      value={formData.location_or_link}
+                      onChange={e =>
+                        setFormData({
+                          ...formData,
+                          location_or_link: e.target.value,
+                        })
+                      }
+                      placeholder="Sala 1 ou https://zoom.us/..."
+                    />
+                  </div>
+                </div>
               )}
 
-              {/* Task-specific fields */}
               {formData.type === "task" && (
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
@@ -556,9 +611,7 @@ export default function ActivityFormPage() {
                     onChange={e =>
                       setFormData({
                         ...formData,
-                        estimated_hours: e.target.value
-                          ? parseInt(e.target.value)
-                          : null,
+                        estimated_hours: e.target.value ? parseInt(e.target.value) : null,
                       })
                     }
                     placeholder="Ex: 8"
@@ -566,7 +619,6 @@ export default function ActivityFormPage() {
                 </div>
               )}
 
-              {/* Observations */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Observações
@@ -581,7 +633,6 @@ export default function ActivityFormPage() {
                 />
               </div>
 
-              {/* Submit */}
               <div className="flex gap-3">
                 <Button type="submit" disabled={isSaving}>
                   {isSaving ? (
@@ -589,7 +640,7 @@ export default function ActivityFormPage() {
                   ) : (
                     <Plus className="w-4 h-4 mr-2" />
                   )}
-                  {isEditing ? "Atualizar" : "Criar"} Atividade
+                  Atualizar Atividade
                 </Button>
                 <Button
                   type="button"

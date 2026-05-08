@@ -31,9 +31,10 @@ import UsuariosView from "./pages/users/view";
 import UsuariosEdit from "./pages/users/edit";
 import MeetingsList from "./pages/meetings/index";
 import MeetingsNew from "./pages/meetings/new";
-import ActivitiesPage from "./pages/activities/index";
-import ActivityFormPage from "./pages/activities/form";
-import ColumnsManagerPage from "./pages/activities/columns-manager";
+import ActivitiesPage from "./pages/activities/activities/index";
+import ActivityNewPage from "./pages/activities/activities/new";
+import ActivityEditPage from "./pages/activities/activities/edit";
+import ColumnsManagerPage from "./pages/activities/columns/index";
 import Configuracoes from "./pages/Configuracoes";
 import OnboardingOrganization from "./pages/profile/OnboardingOrganization";
 import Jurimetria from "./pages/jurimetry";
@@ -131,7 +132,7 @@ function Router() {
       <Route path="/activities/novo">
         <ProtectedRoute>
           <Layout>
-            <ActivityFormPage />
+            <ActivityNewPage />
           </Layout>
         </ProtectedRoute>
       </Route>
@@ -145,7 +146,7 @@ function Router() {
       <Route path="/activities/:id">
         <ProtectedRoute>
           <Layout>
-            <ActivityFormPage />
+            <ActivityEditPage />
           </Layout>
         </ProtectedRoute>
       </Route>
