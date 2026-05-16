@@ -42,7 +42,7 @@ export function ConfirmDialog({
           ) : null}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel className="hover:bg-muted">
+          <AlertDialogCancel className="hover:bg-accent hover:text-accent-foreground">
             {cancelText}
           </AlertDialogCancel>
           <AlertDialogAction

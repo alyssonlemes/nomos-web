@@ -267,7 +267,7 @@ export default function UsuariosViewPage() {
                 type="button"
                 variant="outline"
                 onClick={() => setLocation('/usuarios')}
-                className="hover:bg-muted"
+                className="hover:bg-accent hover:text-accent-foreground"
               >
                 Voltar
               </Button>

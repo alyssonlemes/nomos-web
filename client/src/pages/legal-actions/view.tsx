@@ -245,7 +245,7 @@ export default function ProcessoViewPage() {
             </Card>
 
             <div className="flex items-center justify-end gap-4">
-              <Button variant="outline" onClick={() => setLocation('/legal-actions')} className="hover:bg-muted">
+              <Button variant="outline" onClick={() => setLocation('/legal-actions')} className="hover:bg-accent hover:text-accent-foreground">
                 Voltar
               </Button>
               <Button onClick={() => setLocation(`/legal-actions/${action.id}/editar`)} className="gap-2">

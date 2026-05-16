@@ -196,7 +196,7 @@ export default function LegalActionTypesPage() {
                   <Button
                     variant="outline"
                     onClick={() => setLocation('/legal-action-types/novo')}
-                    className="hover:bg-muted hover:text-foreground"
+                    className="hover:bg-accent hover:text-accent-foreground"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Adicionar Primeiro Tipo

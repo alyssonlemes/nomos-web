@@ -256,7 +256,7 @@ export default function ProcessosPage() {
               <div className="text-center py-12">
                 <p className="text-muted-foreground mb-4">Nenhum processo encontrado</p>
                 {canWriteLegalActions && (
-                  <Button variant="outline" onClick={() => setLocation('/legal-actions/novo')} className="hover:bg-muted hover:text-foreground">
+                  <Button variant="outline" onClick={() => setLocation('/legal-actions/novo')} className="hover:bg-accent hover:text-accent-foreground">
                     <Plus className="w-4 h-4 mr-2" />
                     Adicionar Primeiro Processo
                   </Button>

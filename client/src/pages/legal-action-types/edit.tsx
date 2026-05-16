@@ -177,7 +177,7 @@ export default function LegalActionTypeEditPage() {
               variant="outline"
               onClick={() => setLocation('/legal-action-types')}
               disabled={isLoading}
-              className="hover:bg-muted"
+              className="hover:bg-accent hover:text-accent-foreground"
             >
               Cancelar
             </Button>

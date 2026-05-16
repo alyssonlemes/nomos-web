@@ -106,7 +106,7 @@ export default function LegalActionTypeViewPage() {
             </Card>
 
             <div className="flex items-center justify-end gap-4">
-              <Button variant="outline" onClick={() => setLocation('/legal-action-types')} className="hover:bg-muted">
+              <Button variant="outline" onClick={() => setLocation('/legal-action-types')} className="hover:bg-accent hover:text-accent-foreground">
                 Voltar
               </Button>
               <Button onClick={() => setLocation(`/legal-action-types/${type.id}/editar`)} className="gap-2">

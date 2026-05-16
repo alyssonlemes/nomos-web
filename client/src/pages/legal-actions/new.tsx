@@ -324,7 +324,7 @@ export default function ProcessoNovoPage() {
               variant="outline"
               onClick={() => setLocation('/legal-actions')}
               disabled={isLoading}
-              className="hover:bg-muted"
+              className="hover:bg-accent hover:text-accent-foreground"
             >
               Cancelar
             </Button>

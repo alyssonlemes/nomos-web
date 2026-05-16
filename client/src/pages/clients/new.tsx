@@ -304,7 +304,7 @@ export default function ClienteNovoPage() {
               variant="outline"
               onClick={() => setLocation('/clientes')}
               disabled={isLoading}
-              className="hover:bg-muted"
+              className="hover:bg-accent hover:text-accent-foreground"
             >
               Cancelar
             </Button>

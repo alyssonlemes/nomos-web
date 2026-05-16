@@ -11,7 +11,6 @@ import {
   Grid3x3,
   UserCog,
   Bot,
-  Calendar,
   CheckSquare,
 } from "lucide-react";
 import { AuthService } from "@/services/auth.service";
@@ -95,16 +94,6 @@ export default function Sidebar() {
       ],
     },
     {
-      id: "meetings",
-      label: "Reuniões",
-      icon: <Calendar className="w-5 h-5" />,
-      allowedRoles: ["ADMIN", "OWNER", "MEMBER", "VIEWER", "ASSISTANT"],
-      href: "/meetings",
-      submenu: [
-        { id: "meetings-list", label: "Minhas Reuniões", href: "/meetings" },
-      ],
-    },
-    {
       id: "activities",
       label: "Atividades",
       icon: <CheckSquare className="w-5 h-5" />,
@@ -167,7 +156,6 @@ export default function Sidebar() {
   const getActiveItem = () => {
     if (location === "/home") return "home";
     if (location.startsWith("/clientes")) return "clientes";
-    if (location.startsWith("/meetings")) return "meetings";
     if (location.startsWith("/activities")) return "activities";
     if (location.startsWith("/jurimetria")) return "jurimetria";
     if (

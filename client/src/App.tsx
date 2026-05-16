@@ -29,8 +29,6 @@ import UsuariosList from "./pages/users/index";
 import UsuariosNew from "./pages/users/new";
 import UsuariosView from "./pages/users/view";
 import UsuariosEdit from "./pages/users/edit";
-import MeetingsList from "./pages/meetings/index";
-import MeetingsNew from "./pages/meetings/new";
 import ActivitiesPage from "./pages/activities/activities/index";
 import ActivityNewPage from "./pages/activities/activities/new";
 import ActivityEditPage from "./pages/activities/activities/edit";
@@ -105,20 +103,6 @@ function Router() {
         <ProtectedRoute>
           <Layout>
             <ClientsEdit />
-          </Layout>
-        </ProtectedRoute>
-      </Route>
-      <Route path="/meetings">
-        <ProtectedRoute>
-          <Layout>
-            <MeetingsList />
-          </Layout>
-        </ProtectedRoute>
-      </Route>
-      <Route path="/meetings/novo">
-        <ProtectedRoute>
-          <Layout>
-            <MeetingsNew />
           </Layout>
         </ProtectedRoute>
       </Route>

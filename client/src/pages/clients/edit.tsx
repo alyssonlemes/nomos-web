@@ -396,7 +396,7 @@ export default function ClienteEditPage() {
               variant="outline"
               onClick={() => setLocation('/clientes')}
               disabled={isLoading}
-              className="hover:bg-muted"
+              className="hover:bg-accent hover:text-accent-foreground"
             >
               Cancelar
             </Button>
