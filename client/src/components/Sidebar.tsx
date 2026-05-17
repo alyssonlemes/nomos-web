@@ -212,9 +212,16 @@ export default function Sidebar() {
         {/* Header */}
         <div className="flex items-center justify-between h-20 px-6 border-b border-sidebar-border flex-shrink-0">
           {isOpen && (
-            <h1 className="text-2xl font-bold text-sidebar-foreground">
-              Nomos
-            </h1>
+            <div className="flex items-center gap-3">
+              <img
+                src="/black_logo.png"
+                alt="Logo Nomos"
+                className="h-14 w-auto"
+              />
+              <h1 className="text-2xl font-bold text-sidebar-foreground">
+                Nomos
+              </h1>
+            </div>
           )}
           <button
             onClick={() => setIsOpen(!isOpen)}

@@ -29,6 +29,9 @@ export default function OnboardingOrganization() {
   const [activeTab, setActiveTab] = useState('invites');
   const [organizationName, setOrganizationName] = useState('');
   const [organizationDocument, setOrganizationDocument] = useState('');
+  const [documentType, setDocumentType] = useState<'cpf' | 'cnpj'>('cnpj');
+  const [legalRepresentativeName, setLegalRepresentativeName] = useState('');
+  const [legalRepresentativeDocument, setLegalRepresentativeDocument] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingInvites, setIsLoadingInvites] = useState(true);
   const [error, setError] = useState('');
@@ -67,12 +70,21 @@ export default function OnboardingOrganization() {
         throw new Error('Nome da organização é obrigatório');
       }
       if (!organizationDocument.trim()) {
-        throw new Error('CNPJ/CPF é obrigatório');
+        throw new Error(documentType === 'cnpj' ? 'CNPJ é obrigatório' : 'CPF é obrigatório');
+      }
+      if (documentType === 'cnpj') {
+        if (!legalRepresentativeName.trim() || !legalRepresentativeDocument.trim()) {
+          throw new Error('Preencha nome e CPF do representante legal');
+        }
       }
 
       await OrganizationService.createOrganization({
         name: organizationName,
         document: organizationDocument,
+        legal_representative_name:
+          documentType === 'cnpj' ? legalRepresentativeName.trim() || undefined : undefined,
+        legal_representative_document:
+          documentType === 'cnpj' ? legalRepresentativeDocument.trim() || undefined : undefined,
       });
 
       setSuccess('Organização criada com sucesso!');
@@ -141,10 +153,10 @@ export default function OnboardingOrganization() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="w-full max-w-2xl">
+    <div className="min-h-screen bg-background p-6 overflow-y-auto">
+      <div className="w-full max-w-2xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <img 
             src="/black_logo.png" 
             alt="Nomos" 
@@ -177,7 +189,7 @@ export default function OnboardingOrganization() {
 
         {/* Conteúdo Principal */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-2 sticky top-0 z-10 bg-background">
             <TabsTrigger value="invites" className="flex items-center gap-2">
               <Mail className="h-4 w-4" />
               Convites {invites.length > 0 && `(${invites.length})`}
@@ -276,58 +288,126 @@ export default function OnboardingOrganization() {
 
           {/* Tab de Criar Organização */}
           <TabsContent value="create">
-            <Card className="min-h-[360px]">
+            <Card className="min-h-[360px] max-h-[min(560px,calc(100dvh-260px))] flex flex-col overflow-hidden">
               <CardHeader>
                 <CardTitle>Criar Nova Organização</CardTitle>
                 <CardDescription>
                   Preencha as informações para criar sua organização
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <form onSubmit={handleCreateOrganization} className="space-y-6">
-                  {/* Nome da Organização */}
-                  <div className="space-y-2">
-                    <label
-                      htmlFor="org-name"
-                      className="block text-sm font-medium text-foreground"
-                    >
-                      Nome da Organização
-                    </label>
-                    <Input
-                      id="org-name"
-                      placeholder="Ex: Acme Jurídica"
-                      value={organizationName}
-                      onChange={(e) => setOrganizationName(e.target.value)}
-                      disabled={isLoading}
-                      required
-                    />
+              <CardContent className="flex-1 flex flex-col overflow-hidden">
+                <form
+                  onSubmit={handleCreateOrganization}
+                  className="flex-1 min-h-0 flex flex-col"
+                >
+                  <div className="flex-1 min-h-0 overflow-y-auto space-y-6 pr-2 pl-1">
+                    {/* Nome da Organização */}
+                    <div className="space-y-2">
+                      <label
+                        htmlFor="org-name"
+                        className="block text-sm font-medium text-foreground"
+                      >
+                        Nome da Organização
+                      </label>
+                      <Input
+                        id="org-name"
+                        placeholder="Ex: Acme Jurídica"
+                        value={organizationName}
+                        onChange={(e) => setOrganizationName(e.target.value)}
+                        disabled={isLoading}
+                        required
+                      />
+                    </div>
+
+                    {/* Tipo de Documento */}
+                    <div className="space-y-2">
+                      <label
+                        htmlFor="org-doc-type"
+                        className="block text-sm font-medium text-foreground"
+                      >
+                        Tipo de Documento
+                      </label>
+                      <select
+                        id="org-doc-type"
+                        value={documentType}
+                        onChange={(e) => {
+                          const nextType = e.target.value as 'cpf' | 'cnpj';
+                          setDocumentType(nextType);
+                          setOrganizationDocument('');
+                          if (nextType === 'cpf') {
+                            setLegalRepresentativeName('');
+                            setLegalRepresentativeDocument('');
+                          }
+                        }}
+                        disabled={isLoading}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="cpf">CPF</option>
+                        <option value="cnpj">CNPJ</option>
+                      </select>
+                    </div>
+
+                    {/* CNPJ/CPF */}
+                    <div className="space-y-2">
+                      <label
+                        htmlFor="org-doc"
+                        className="block text-sm font-medium text-foreground"
+                      >
+                        {documentType === 'cnpj' ? 'CNPJ' : 'CPF'}
+                      </label>
+                      <Input
+                        id="org-doc"
+                        placeholder={
+                          documentType === 'cnpj' ? '00.000.000/0000-00' : '000.000.000-00'
+                        }
+                        value={organizationDocument}
+                        onChange={(e) => setOrganizationDocument(e.target.value)}
+                        disabled={isLoading}
+                        required
+                      />
+                    </div>
+
+                    {documentType === 'cnpj' && (
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <label
+                            htmlFor="org-legal-representative-name"
+                            className="block text-sm font-medium text-foreground"
+                          >
+                            Representante Legal (nome)
+                          </label>
+                          <Input
+                            id="org-legal-representative-name"
+                            placeholder="Ex: Maria Silva"
+                            value={legalRepresentativeName}
+                            onChange={(e) => setLegalRepresentativeName(e.target.value)}
+                            disabled={isLoading}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label
+                            htmlFor="org-legal-representative-doc"
+                            className="block text-sm font-medium text-foreground"
+                          >
+                            Representante Legal (CPF)
+                          </label>
+                          <Input
+                            id="org-legal-representative-doc"
+                            placeholder="000.000.000-00"
+                            value={legalRepresentativeDocument}
+                            onChange={(e) => setLegalRepresentativeDocument(e.target.value)}
+                            disabled={isLoading}
+                            required
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* CNPJ/CPF */}
-                  <div className="space-y-2">
-                    <label
-                      htmlFor="org-doc"
-                      className="block text-sm font-medium text-foreground"
-                    >
-                      CNPJ / CPF
-                    </label>
-                    <Input
-                      id="org-doc"
-                      placeholder="00.000.000/0000-00"
-                      value={organizationDocument}
-                      onChange={(e) => setOrganizationDocument(e.target.value)}
-                      disabled={isLoading}
-                      required
-                    />
-                  </div>
-
-                  {/* Botões */}
-                  <div className="flex flex-col gap-3 pt-4">
-                    <Button
-                      type="submit"
-                      disabled={isLoading}
-                      className="flex-1"
-                    >
+                  {/* Botões (fixos, fora do scroll) */}
+                  <div className="mt-6 pt-4 border-t border-border flex flex-col gap-3">
+                    <Button type="submit" disabled={isLoading} className="flex-1">
                       {isLoading ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />

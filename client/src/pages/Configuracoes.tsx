@@ -94,6 +94,25 @@ export default function Configuracoes() {
                   </div>
                 </div>
 
+                {/* Representante Legal */}
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Representante Legal (nome)
+                  </label>
+                  <div className="p-3 bg-muted rounded-md text-foreground">
+                    {organization.legal_representative_name || 'Nao informado'}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Representante Legal (CPF)
+                  </label>
+                  <div className="p-3 bg-muted rounded-md text-foreground font-mono">
+                    {organization.legal_representative_document || 'Nao informado'}
+                  </div>
+                </div>
+
                 {/* Data de Criação */}
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">

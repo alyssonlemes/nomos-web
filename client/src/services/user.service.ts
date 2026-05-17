@@ -223,12 +223,18 @@ export class UserService {
     }
   }
 
-  static async updateUser(payload: UpdateUserRequest): Promise<UserResponse> {
+  static async updateUser(userId: number | 'me', payload: UpdateUserRequest): Promise<UserResponse> {
     try {
+      const storedUserId = UserService.getStoredUser()?.id;
+      const resolvedUserId = userId === 'me' ? storedUserId : userId;
+      if (!resolvedUserId) {
+        throw new Error('ID de usuario invalido');
+      }
+
       const response = await AuthService.authenticatedFetch(
-        `${API_BASE_URL}/api/v1/users/me`,
+        `${API_BASE_URL}/api/v1/users/${resolvedUserId}`,
         {
-          method: 'PATCH',
+          method: 'PUT',
           body: JSON.stringify(payload),
         }
       );
@@ -245,9 +251,11 @@ export class UserService {
       }
       data.role = roleUpper ? (roleUpper as UserRole) : null;
 
-      // Atualizar dados do usuário no localStorage
-      localStorage.setItem('user', JSON.stringify(data));
-      localStorage.setItem('userRole', data.role || '');
+      // Atualizar localStorage apenas quando for o usuario logado
+      if (storedUserId && resolvedUserId === storedUserId) {
+        localStorage.setItem('user', JSON.stringify(data));
+        localStorage.setItem('userRole', data.role || '');
+      }
 
       return data;
     } catch (error) {

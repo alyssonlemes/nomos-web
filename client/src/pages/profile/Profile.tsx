@@ -4,6 +4,19 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { UserService, UserResponse } from "@/services/user.service";
 import { OrganizationService, Organization } from "@/services/organization.service";
 
+function getRoleLabel(role: string): string {
+  const normalized = role.trim().toLowerCase();
+  const labels: Record<string, string> = {
+    admin: "Administrador",
+    owner: "Proprietário",
+    member: "Membro",
+    viewer: "Visualizador",
+    assistant: "Assistente",
+  };
+
+  return labels[normalized] ?? role;
+}
+
 export default function Profile() {
   const [user, setUser] = useState<UserResponse | null>(UserService.getStoredUser());
   const [loading, setLoading] = useState<boolean>(!user);
@@ -11,6 +24,7 @@ export default function Profile() {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [orgLoading, setOrgLoading] = useState<boolean>(false);
   const [orgError, setOrgError] = useState<string | null>(null);
+  const roleLabel = user?.role ? getRoleLabel(user.role) : "—";
 
   useEffect(() => {
     let mounted = true;
@@ -88,8 +102,8 @@ export default function Profile() {
             </div>
 
             <div>
-              <div className="text-sm text-muted-foreground">Role</div>
-              <div className="font-medium uppercase">{user?.role ?? '—'}</div>
+              <div className="text-sm text-muted-foreground">Função</div>
+              <div className="font-medium uppercase">{roleLabel}</div>
             </div>
 
             <div>

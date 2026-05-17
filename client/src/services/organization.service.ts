@@ -4,6 +4,8 @@ export interface Organization {
   id: number;
   name: string;
   document: string;
+  legal_representative_name?: string | null;
+  legal_representative_document?: string | null;
   created_at: string;
   updated_at: string | null;
 }
@@ -21,6 +23,8 @@ export interface OrganizationInvite {
 interface CreateOrganizationRequest {
   name: string;
   document: string;
+  legal_representative_name?: string;
+  legal_representative_document?: string;
 }
 
 interface ErrorResponse {

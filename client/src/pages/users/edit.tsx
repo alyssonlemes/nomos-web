@@ -100,7 +100,7 @@ export default function UsuariosEditPage() {
 
     try {
       // Update basic user data
-      const updatedUser = await UserService.updateUser({
+      const updatedUser = await UserService.updateUser(userId, {
         full_name: fullName,
         email: email,
       });
