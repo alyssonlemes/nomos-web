@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff } from 'lucide-react';
 import { UserService } from '@/services/user.service';
 
@@ -18,42 +17,39 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [withOrganization, setWithOrganization] = useState(false);
-  const [organizationName, setOrganizationName] = useState('');
-  const [organizationDocument, setOrganizationDocument] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setPasswordError('');
 
     if (password !== confirmPassword) {
       setError('As senhas não conferem');
+      setPasswordError('');
+      return;
+    }
+
+    if (password.length < 6) {
+      const message = 'A senha deve ter pelo menos 6 caracteres.';
+      setError(message);
+      setPasswordError(message);
       return;
     }
 
     setIsLoading(true);
 
     try {
-      if (withOrganization) {
-        await UserService.registerWithOrganization({
-          email,
-          password,
-          full_name: fullName,
-          organization_name: organizationName,
-          organization_document: organizationDocument,
-        });
-      } else {
-        await UserService.register({
-          email,
-          password,
-          full_name: fullName,
-          organization_id: null,
-        });
-      }
+      await UserService.register({
+        email,
+        password,
+        full_name: fullName,
+        organization_id: null,
+      });
 
       setSuccess('Usuário criado com sucesso. Você já pode entrar.');
       setIsLoading(false);
@@ -63,6 +59,9 @@ export default function Register() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar usuário';
       setError(errorMessage);
+      if (errorMessage.toLowerCase().includes('senha')) {
+        setPasswordError(errorMessage);
+      }
       setIsLoading(false);
     }
   };
@@ -153,7 +152,13 @@ export default function Register() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (passwordError) {
+                      setPasswordError('');
+                    }
+                  }}
+                  aria-invalid={Boolean(passwordError)}
                   className="input-refined pr-10"
                   required
                 />
@@ -169,6 +174,7 @@ export default function Register() {
                   )}
                 </button>
               </div>
+              {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
             </div>
 
             {/* Confirmar Senha */}
@@ -187,55 +193,11 @@ export default function Register() {
               />
             </div>
 
-            {/* Organização */}
-            <div className="flex items-center gap-3">
-              <Checkbox
-                checked={withOrganization}
-                onCheckedChange={(checked) => setWithOrganization(checked === true)}
-              />
-              <span className="text-sm text-foreground">Criar com organização</span>
-            </div>
-
-            {withOrganization && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="organizationName" className="block text-sm font-medium text-foreground">
-                    Nome da organização
-                  </label>
-                  <Input
-                    id="organizationName"
-                    type="text"
-                    placeholder="Silva & Associados Advocacia"
-                    value={organizationName}
-                    onChange={(e) => setOrganizationName(e.target.value)}
-                    className="input-refined"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="organizationDocument" className="block text-sm font-medium text-foreground">
-                    Documento da organização
-                  </label>
-                  <Input
-                    id="organizationDocument"
-                    type="text"
-                    placeholder="12.345.678/0001-99"
-                    value={organizationDocument}
-                    onChange={(e) => setOrganizationDocument(e.target.value)}
-                    className="input-refined"
-                    required
-                  />
-                </div>
-              </div>
-            )}
-
             {/* Botão Criar */}
             <Button type="submit" disabled={isLoading} className="btn-primary w-full">
               {isLoading ? 'Criando...' : 'Criar conta'}
             </Button>
           </form>
-
-          {/* Divisor */}
           <div className="divider-horizontal" />
 
           {/* Login */}

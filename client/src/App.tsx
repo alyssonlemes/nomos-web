@@ -226,7 +226,7 @@ function Router() {
         </ProtectedRoute>
       </Route>
       <Route path={"/usuarios"}>
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER", "MEMBER"]}>
+        <ProtectedRoute allowedRoles={["ADMIN", "OWNER"]}>
           <Layout>
             <UsuariosList />
           </Layout>

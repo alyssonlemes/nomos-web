@@ -8,14 +8,6 @@ interface RegisterUserRequest {
   organization_id: number | null;
 }
 
-interface RegisterUserWithOrganizationRequest {
-  email: string;
-  password: string;
-  full_name: string;
-  organization_name: string;
-  organization_document: string;
-}
-
 interface UpdateUserRequest {
   full_name?: string;
   email?: string;
@@ -29,7 +21,7 @@ export interface UserResponse {
   id: number;
   email: string;
   full_name: string;
-  role: UserRole;
+  role: UserRole | null;
   organization_id: number | null;
   is_active: boolean;
   is_superuser: boolean;
@@ -43,10 +35,71 @@ interface UsersListResponse {
 }
 
 interface ErrorResponse {
-  detail: string;
+  detail: string | Array<{
+    type?: string;
+    loc?: Array<string | number>;
+    msg?: string;
+    input?: unknown;
+  }>;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+function translateFieldName(field: string): string {
+  const translations: Record<string, string> = {
+    email: 'email',
+    password: 'senha',
+    full_name: 'nome completo',
+    organization_id: 'organização',
+    role: 'perfil',
+  };
+
+  return translations[field] || field.replace(/_/g, ' ');
+}
+
+function translateValidationMessage(item: {
+  type?: string;
+  loc?: Array<string | number>;
+  msg?: string;
+}): string {
+  const field = item.loc?.find((part) => typeof part === 'string' && part !== 'body');
+  const fieldName = typeof field === 'string' ? translateFieldName(field) : 'campo';
+
+  if (item.type === 'string_too_short') {
+    const minLength = typeof item.loc?.includes('password') === 'boolean' ? 6 : undefined;
+    if (field === 'password') {
+      return `A senha deve ter pelo menos ${minLength || 6} caracteres.`;
+    }
+    return `O campo ${fieldName} deve ter pelo menos ${minLength || 6} caracteres.`;
+  }
+
+  if (item.type === 'missing') {
+    return `O campo ${fieldName} é obrigatório.`;
+  }
+
+  if (item.msg) {
+    if (field === 'password') {
+      return `A senha é inválida.`;
+    }
+    return `O campo ${fieldName} está inválido.`;
+  }
+
+  return 'Dados inválidos.';
+}
+
+function formatApiError(error: ErrorResponse, fallbackMessage: string): string {
+  if (typeof error.detail === 'string') {
+    return error.detail;
+  }
+
+  if (Array.isArray(error.detail) && error.detail.length > 0) {
+    return error.detail
+      .map((item) => translateValidationMessage(item))
+      .join('; ');
+  }
+
+  return fallbackMessage;
+}
 
 export class UserService {
   static async getMe(): Promise<UserResponse> {
@@ -58,18 +111,21 @@ export class UserService {
 
       if (!response.ok) {
         const error: ErrorResponse = await response.json();
-        throw new Error(error.detail || 'Erro ao obter dados do usuário');
+        throw new Error(formatApiError(error, 'Erro ao obter dados do usuário'));
       }
 
-      const data = await response.json() as UserResponse & { role: string };
-      if (!['ADMIN', 'OWNER', 'MEMBER', 'VIEWER', 'ASSISTANT'].includes(data.role)) {
+      const data = await response.json() as UserResponse & { role: string | null };
+      // Permitir role nula quando usuário ainda não pertence a uma organização
+      const roleUpper = data.role ? data.role.toUpperCase() : null;
+      if (roleUpper && !['ADMIN', 'OWNER', 'MEMBER', 'VIEWER', 'ASSISTANT'].includes(roleUpper)) {
         throw new Error('Role inválida retornada pelo servidor');
       }
-      data.role = data.role as UserRole;
-      
+      // Normalizar role para o formato esperado pela UI (pode ser null)
+      data.role = roleUpper ? (roleUpper as UserRole) : null;
+
       // Armazenar dados do usuário no localStorage
       localStorage.setItem('user', JSON.stringify(data));
-      localStorage.setItem('userRole', data.role);
+      localStorage.setItem('userRole', data.role || '');
 
       return data;
     } catch (error) {
@@ -99,7 +155,7 @@ export class UserService {
 
       if (!response.ok) {
         const error: ErrorResponse = await response.json();
-        throw new Error(error.detail || 'Erro ao buscar usuários');
+        throw new Error(formatApiError(error, 'Erro ao buscar usuários'));
       }
 
       const data = await response.json();
@@ -131,7 +187,7 @@ export class UserService {
 
       if (!response.ok) {
         const error: ErrorResponse = await response.json();
-        throw new Error(error.detail || 'Erro ao buscar usuário');
+        throw new Error(formatApiError(error, 'Erro ao buscar usuário'));
       }
 
       return response.json() as Promise<UserResponse>;
@@ -155,36 +211,7 @@ export class UserService {
 
       if (!response.ok) {
         const error: ErrorResponse = await response.json();
-        throw new Error(error.detail || 'Erro ao criar usuário');
-      }
-
-      return response.json() as Promise<UserResponse>;
-    } catch (error) {
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error('Erro de conexão com o servidor');
-    }
-  }
-
-  static async registerWithOrganization(
-    payload: RegisterUserWithOrganizationRequest
-  ): Promise<UserResponse> {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/v1/users/register-with-organization`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (!response.ok) {
-        const error: ErrorResponse = await response.json();
-        throw new Error(error.detail || 'Erro ao criar usuário');
+        throw new Error(formatApiError(error, 'Erro ao criar usuário'));
       }
 
       return response.json() as Promise<UserResponse>;
@@ -208,18 +235,19 @@ export class UserService {
 
       if (!response.ok) {
         const error: ErrorResponse = await response.json();
-        throw new Error(error.detail || 'Erro ao atualizar dados do usuário');
+        throw new Error(formatApiError(error, 'Erro ao atualizar dados do usuário'));
       }
 
-      const data = await response.json() as UserResponse & { role: string };
-      if (!['ADMIN', 'OWNER', 'MEMBER', 'VIEWER', 'ASSISTANT'].includes(data.role)) {
+      const data = await response.json() as UserResponse & { role: string | null };
+      const roleUpper = data.role ? data.role.toUpperCase() : null;
+      if (roleUpper && !['ADMIN', 'OWNER', 'MEMBER', 'VIEWER', 'ASSISTANT'].includes(roleUpper)) {
         throw new Error('Role inválida retornada pelo servidor');
       }
-      data.role = data.role as UserRole;
-      
+      data.role = roleUpper ? (roleUpper as UserRole) : null;
+
       // Atualizar dados do usuário no localStorage
       localStorage.setItem('user', JSON.stringify(data));
-      localStorage.setItem('userRole', data.role);
+      localStorage.setItem('userRole', data.role || '');
 
       return data;
     } catch (error) {
@@ -239,7 +267,7 @@ export class UserService {
 
       if (!response.ok) {
         const error: ErrorResponse = await response.json();
-        throw new Error(error.detail || 'Erro ao desvincular usuário da organização');
+        throw new Error(formatApiError(error, 'Erro ao desvincular usuário da organização'));
       }
 
       return;
@@ -263,14 +291,15 @@ export class UserService {
 
       if (!response.ok) {
         const error: ErrorResponse = await response.json();
-        throw new Error(error.detail || 'Erro ao atualizar role do usuário');
+        throw new Error(formatApiError(error, 'Erro ao atualizar role do usuário'));
       }
 
-      const data = await response.json() as UserResponse & { role: string };
-      if (!['ADMIN', 'OWNER', 'MEMBER', 'VIEWER', 'ASSISTANT'].includes(data.role)) {
+      const data = await response.json() as UserResponse & { role: string | null };
+      const roleUpper = data.role ? data.role.toUpperCase() : null;
+      if (roleUpper && !['ADMIN', 'OWNER', 'MEMBER', 'VIEWER', 'ASSISTANT'].includes(roleUpper)) {
         throw new Error('Role inválida retornada pelo servidor');
       }
-      data.role = data.role as UserRole;
+      data.role = roleUpper ? (roleUpper as UserRole) : null;
 
       return data;
     } catch (error) {

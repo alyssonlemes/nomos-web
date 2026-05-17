@@ -2,9 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Loader2, Send, Sparkles } from 'lucide-react';
+import { JurimetriaService, JurimetriaChatPrediction } from '@/services/jurimetria.service';
 
 type ChatMessage = {
   id: string;
@@ -31,6 +31,26 @@ export default function Jurimetria() {
     }
   }, [messages]);
 
+  const formatPrediction = (prediction: JurimetriaChatPrediction): string => {
+    const lines = [
+      `Estimativa total: ${prediction.tempo_total_estimado_dias} dias.`,
+    ];
+
+    if (prediction.tempo_decorrido_dias !== null && prediction.tempo_decorrido_dias !== undefined) {
+      lines.push(`Tempo decorrido: ${prediction.tempo_decorrido_dias} dias.`);
+    }
+
+    if (
+      prediction.tempo_estimado_restante_dias !== null &&
+      prediction.tempo_estimado_restante_dias !== undefined
+    ) {
+      lines.push(`Tempo restante estimado: ${prediction.tempo_estimado_restante_dias} dias.`);
+    }
+
+    lines.push(`Fonte: ${prediction.fonte_dados}.`);
+    return lines.join('\n');
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isSending) return;
 
@@ -44,18 +64,35 @@ export default function Jurimetria() {
     setInput('');
     setIsSending(true);
 
-    // Placeholder de resposta até integrar com backend de jurimetria/IA
-    const fakeResponse: ChatMessage = {
-      id: `assistant-${Date.now()}`,
-      role: 'assistant',
-      content:
-        'Esta é uma resposta de exemplo. Aqui você verá análises jurimétricas, estatísticas de resultados, tempos médios de tramitação e insights baseados nos dados dos seus processos quando a integração estiver concluída.',
-    };
+    try {
+      const response = await JurimetriaService.chat({
+        message: userMessage.content,
+      });
 
-    setTimeout(() => {
-      setMessages((prev) => [...prev, fakeResponse]);
+      const predictionText = response.prediction
+        ? `\n\n${formatPrediction(response.prediction)}`
+        : '';
+
+      const assistantMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: `${response.message}${predictionText}`,
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao consultar jurimetria.';
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: message,
+        },
+      ]);
+    } finally {
       setIsSending(false);
-    }, 800);
+    }
   };
 
   const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
@@ -66,8 +103,8 @@ export default function Jurimetria() {
   };
 
   return (
-    <div className="p-6 min-h-full flex flex-col">
-      <div className="max-w-5xl mx-auto flex flex-col gap-4 w-full flex-1">
+    <div className="p-6 h-full flex flex-col overflow-hidden">
+      <div className="max-w-5xl mx-auto flex flex-col gap-4 w-full flex-1 min-h-0">
         <div className="flex items-center justify-between gap-3 mb-2">
           <div>
             <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
@@ -80,7 +117,7 @@ export default function Jurimetria() {
           </div>
         </div>
 
-        <Card className="flex flex-col flex-1 bg-background/60 backdrop-blur border-border/60">
+        <Card className="flex flex-col flex-1 min-h-0 bg-background/60 backdrop-blur border-border/60">
           <CardHeader className="pb-3 border-b border-border/60">
             <CardTitle className="text-base font-semibold text-muted-foreground flex items-center gap-2">
               <span className="relative flex h-2 w-2">
@@ -91,9 +128,9 @@ export default function Jurimetria() {
             </CardTitle>
           </CardHeader>
 
-          <CardContent className="flex flex-col flex-1 pt-4 gap-4 min-h-[400px]">
-            <ScrollArea className="flex-1 pr-2">
-              <div ref={scrollRef} className="flex flex-col gap-4 pb-4 max-h-[60vh] overflow-y-auto">
+          <CardContent className="flex flex-col flex-1 min-h-0 pt-4 gap-4">
+            <div ref={scrollRef} className="flex-1 min-h-0 pr-2 overflow-y-scroll">
+              <div className="flex flex-col gap-4 pb-4">
                 {messages.map((message) => (
                   <div
                     key={message.id}
@@ -114,10 +151,8 @@ export default function Jurimetria() {
                     </div>
                   </div>
                 ))}
-
-                
               </div>
-            </ScrollArea>
+            </div>
 
             <form
               className="mt-2 flex items-center gap-2 rounded-2xl border border-border/70 bg-background/80 px-3 py-2 shadow-sm"
@@ -130,7 +165,7 @@ export default function Jurimetria() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Pergunte algo como: Quais as chances de êxito em ações trabalhistas desta organização?"
+                placeholder="Exemplo: tribunal=tjsp; data_ajuizamento=2023-01-10; area_juridica_principal=Criminal; classe_processual=Procedimento Comum"
                 className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
               />
               <Button

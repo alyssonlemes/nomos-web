@@ -100,14 +100,14 @@ export default function Sidebar() {
       allowedRoles: ["ADMIN", "OWNER", "MEMBER", "VIEWER", "ASSISTANT"],
       href: "/activities",
       submenu: [
-        { id: "activities-list", label: "Meu Kanban", href: "/activities" },
+        { id: "activities-list", label: "Quadro", href: "/activities" },
       ],
     },
     {
       id: "usuarios",
       label: "Usuários",
       icon: <UserCog className="w-5 h-5" />,
-      allowedRoles: ["ADMIN", "OWNER", "MEMBER"],
+      allowedRoles: ["ADMIN", "OWNER"],
       href: "/usuarios",
       submenu: [
         {

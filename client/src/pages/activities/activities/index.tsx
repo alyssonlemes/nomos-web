@@ -20,6 +20,7 @@ import {
   Settings,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 import {
   ActivityService,
@@ -137,7 +138,6 @@ export default function ActivitiesPage() {
   };
 
   const handleDelete = async (activityId: number) => {
-    if (!confirm("Tem certeza que deseja deletar esta atividade?")) return;
     try {
       await ActivityService.deleteActivity(activityId);
       toast.success("Atividade deletada");
@@ -345,15 +345,19 @@ function ActivityCard({
               >
                 <Edit2 className="w-4 h-4 text-blue-600" />
               </button>
-              <button
-                onClick={e => {
-                  e.stopPropagation();
-                  onDelete();
-                }}
-                className="p-1 hover:bg-red-50 rounded transition"
-              >
-                <Trash2 className="w-4 h-4 text-red-600" />
-              </button>
+              <ConfirmDialog
+                title="Deletar atividade"
+                description="Tem certeza que deseja deletar esta atividade?"
+                onConfirm={() => onDelete()}
+                trigger={
+                  <button
+                    onClick={e => e.stopPropagation()}
+                    className="p-1 hover:bg-red-50 rounded transition"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                  </button>
+                }
+              />
             </div>
           )}
         </div>

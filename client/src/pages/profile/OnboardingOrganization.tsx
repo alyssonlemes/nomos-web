@@ -18,6 +18,7 @@ import {
 import { AuthService } from '@/services/auth.service';
 import { OrganizationService } from '@/services/organization.service';
 import { InvitationService, Invitation } from '@/services/invitation.service';
+import { UserService } from '@/services/user.service';
 
 /**
  * Página de Onboarding de Organização - Nomos
@@ -94,6 +95,7 @@ export default function OnboardingOrganization() {
 
     try {
       await InvitationService.acceptInvite(inviteId);
+      await UserService.getMe();
       setSuccess('Convite aceito com sucesso!');
       // Redirecionar para home após aceitar
       setTimeout(() => {
@@ -193,6 +195,13 @@ export default function OnboardingOrganization() {
                 <CardContent className="pt-6 text-center">
                   <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
                   <p className="text-muted-foreground">Carregando convites...</p>
+                  <Button
+                    variant="ghost"
+                    onClick={handleLogout}
+                    className="mt-6 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    Desconectar
+                  </Button>
                 </CardContent>
               </Card>
             ) : invites.length === 0 ? (
@@ -204,6 +213,13 @@ export default function OnboardingOrganization() {
                   <p className="text-sm text-muted-foreground">
                     Crie uma nova organização ou peça para ser convidado
                   </p>
+                  <Button
+                    variant="ghost"
+                    onClick={handleLogout}
+                    className="mt-6 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    Desconectar
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
@@ -243,6 +259,17 @@ export default function OnboardingOrganization() {
                     </CardContent>
                   </Card>
                 ))}
+                <Card>
+                  <CardContent className="pt-6 text-center">
+                    <Button
+                      variant="ghost"
+                      onClick={handleLogout}
+                      className="text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    >
+                      Desconectar
+                    </Button>
+                  </CardContent>
+                </Card>
               </div>
             )}
           </TabsContent>
@@ -295,7 +322,7 @@ export default function OnboardingOrganization() {
                   </div>
 
                   {/* Botões */}
-                  <div className="flex gap-3 pt-4">
+                  <div className="flex flex-col gap-3 pt-4">
                     <Button
                       type="submit"
                       disabled={isLoading}
@@ -310,23 +337,19 @@ export default function OnboardingOrganization() {
                         'Criar Organização'
                       )}
                     </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={handleLogout}
+                      className="text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    >
+                      Desconectar
+                    </Button>
                   </div>
                 </form>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
-
-        {/* Footer - Logout */}
-        <div className="text-center border-t pt-6">
-          <Button
-            variant="ghost"
-            onClick={handleLogout}
-            className="text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          >
-            Desconectar
-          </Button>
-        </div>
       </div>
 
       {/* Dialog de Confirmação */}

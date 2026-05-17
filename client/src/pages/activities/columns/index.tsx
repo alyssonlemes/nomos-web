@@ -18,6 +18,7 @@ import {
   ChevronLeft,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 import { ActivityService } from "@/services/activity.service";
 import { UserService } from "@/services/user.service";
@@ -94,7 +95,6 @@ export default function ColumnsManagerPage() {
       return;
     }
     if (!columnId) return;
-    if (!confirm("Tem certeza que deseja deletar esta coluna?")) return;
 
     try {
       await ActivityService.deleteColumn(columnId);
@@ -243,14 +243,18 @@ export default function ColumnsManagerPage() {
                           <Edit2 className="w-4 h-4 text-blue-600" />
                         </button>
                         {!column.is_default && (
-                          <button
-                            onClick={() =>
+                          <ConfirmDialog
+                            title="Deletar coluna"
+                            description="Tem certeza que deseja deletar esta coluna?"
+                            onConfirm={() =>
                               handleDeleteColumn(column.id, column.is_default)
                             }
-                            className="p-2 hover:bg-red-50 rounded transition"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-600" />
-                          </button>
+                            trigger={
+                              <button className="p-2 hover:bg-red-50 rounded transition">
+                                <Trash2 className="w-4 h-4 text-red-600" />
+                              </button>
+                            }
+                          />
                         )}
                       </div>
                     </div>

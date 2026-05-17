@@ -19,7 +19,7 @@ export default function UsuariosNewPage() {
   const currentRole = getCurrentRole();
   const canManageInvites = canAccess(currentRole, 'invitations.manage');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'ADMIN' | 'MEMBER' | 'VIEWER' | 'ASSISTANT'>('MEMBER');
+  const [role, setRole] = useState<'admin' | 'member' | 'viewer' | 'assistant'>('member');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -132,14 +132,16 @@ export default function UsuariosNewPage() {
                   <select
                     id="role"
                     value={role}
-                    onChange={(e) => setRole(e.target.value as 'ADMIN' | 'MEMBER' | 'VIEWER' | 'ASSISTANT')}
+                    onChange={(e) =>
+                      setRole(e.target.value as 'admin' | 'member' | 'viewer' | 'assistant')
+                    }
                     disabled={isLoading}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <option value="ADMIN">Administrador</option>
-                    <option value="MEMBER">Membro</option>
-                    <option value="VIEWER">Visualizador</option>
-                    <option value="ASSISTANT">Assistente</option>
+                    <option value="admin">Administrador</option>
+                    <option value="member">Membro</option>
+                    <option value="viewer">Visualizador</option>
+                    <option value="assistant">Assistente</option>
                   </select>
                 </div>
               </div>
