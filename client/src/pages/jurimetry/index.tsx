@@ -23,7 +23,9 @@ export default function Jurimetria() {
   ]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isLoadingPrediction, setIsLoadingPrediction] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const loadingStartRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -63,6 +65,8 @@ export default function Jurimetria() {
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsSending(true);
+    setIsLoadingPrediction(true);
+    loadingStartRef.current = Date.now();
 
     try {
       const response = await JurimetriaService.chat({
@@ -79,9 +83,25 @@ export default function Jurimetria() {
         content: `${response.message}${predictionText}`,
       };
 
+      const elapsedMs = loadingStartRef.current ? Date.now() - loadingStartRef.current : 0;
+      const remainingMs = 1500 - elapsedMs;
+
+      if (remainingMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, remainingMs));
+      }
+
+      setIsLoadingPrediction(false);
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao consultar jurimetria.';
+      const elapsedMs = loadingStartRef.current ? Date.now() - loadingStartRef.current : 0;
+      const remainingMs = 300 - elapsedMs;
+
+      if (remainingMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, remainingMs));
+      }
+
+      setIsLoadingPrediction(false);
       setMessages((prev) => [
         ...prev,
         {
@@ -151,6 +171,16 @@ export default function Jurimetria() {
                     </div>
                   </div>
                 ))}
+                {isLoadingPrediction && (
+                  <div className="flex w-full justify-start">
+                    <div className="max-w-[80%] rounded-2xl px-4 py-3 text-sm shadow-sm border bg-muted/70 text-foreground border-border/70 rounded-bl-sm">
+                      <span className="inline-flex items-center gap-2" aria-live="polite" role="status">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Gerando estimativa...
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
