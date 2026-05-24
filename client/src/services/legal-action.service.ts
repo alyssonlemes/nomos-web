@@ -10,6 +10,12 @@ export interface LegalActionTypeEntity {
   description: string | null;
 }
 
+export interface LegalActionAssignedUser {
+  id: number;
+  full_name: string | null;
+  email: string;
+}
+
 export enum LegalStatus {
   PRE_TRIAL = 'pre_trial',
   FILING = 'filing',
@@ -34,6 +40,7 @@ export interface LegalAction {
   client_id: number;
   organization_id: number;
   user_id: number | null;
+  assigned_users?: LegalActionAssignedUser[];
   is_active: boolean;
   created_at: string;
   updated_at: string | null;
@@ -49,6 +56,7 @@ export interface LegalActionCreate {
   court_name?: string | null;
   filing_date?: string | null;
   client_id: number;
+  user_ids?: number[];
 }
 
 export interface LegalActionUpdate {
@@ -60,6 +68,7 @@ export interface LegalActionUpdate {
   filing_date?: string | null;
   closing_date?: string | null;
   client_id?: number;
+  user_ids?: number[];
 }
 
 // Resposta crua da API (conforme doc)

@@ -7,14 +7,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { AlertCircle, Loader2, ArrowLeft, ChevronsUpDown } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { AlertCircle, Loader2, ArrowLeft, ChevronsUpDown, Check } from 'lucide-react';
 import { LegalActionService, LegalAction, LegalStatus, LegalActionTypeEntity } from '@/services/legal-action.service';
 import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 import { ClientService, Client } from '@/services/client.service';
+import { UserService, UserResponse } from '@/services/user.service';
 import { SelectField } from '@/components/ui/select-field';
 import { cn } from '@/lib/utils';
 
 const CLIENT_PAGE_SIZE = 100;
+const USER_PAGE_SIZE = 200;
+
+type SelectableUser = Pick<UserResponse, 'id' | 'full_name' | 'email'>;
 
 export default function ProcessoEditPage() {
   const [, params] = useRoute('/legal-actions/:id/editar');
@@ -43,6 +48,12 @@ export default function ProcessoEditPage() {
   const [clientOpen, setClientOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+
+  const [users, setUsers] = useState<SelectableUser[]>([]);
+  const [userSearch, setUserSearch] = useState('');
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<SelectableUser[]>([]);
 
   const actionId = params?.id ? parseInt(params.id) : null;
 
@@ -106,6 +117,25 @@ export default function ProcessoEditPage() {
       } else {
         setSelectedClient(null);
       }
+
+      if (Array.isArray((data as any).assigned_users) && (data as any).assigned_users.length > 0) {
+        setSelectedUsers(
+          (data as any).assigned_users.map((user: SelectableUser) => ({
+            id: user.id,
+            full_name: user.full_name,
+            email: user.email,
+          }))
+        );
+      } else if (data.user_id) {
+        try {
+          const user = await UserService.getUserById(data.user_id);
+          setSelectedUsers([{ id: user.id, full_name: user.full_name, email: user.email }]);
+        } catch {
+          setSelectedUsers([]);
+        }
+      } else {
+        setSelectedUsers([]);
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar processo';
       setError(errorMessage);
@@ -132,6 +162,24 @@ export default function ProcessoEditPage() {
     }
   }, []);
 
+  const fetchUsers = useCallback(async () => {
+    setLoadingUsers(true);
+    try {
+      const res = await UserService.getUsers(0, USER_PAGE_SIZE);
+      setUsers(
+        (res.users ?? []).map((user) => ({
+          id: user.id,
+          full_name: user.full_name,
+          email: user.email,
+        }))
+      );
+    } catch {
+      setUsers([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  }, []);
+
   const handleClientSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -150,11 +198,33 @@ export default function ProcessoEditPage() {
     }
   };
 
+  const handleUsersOpenChange = (open: boolean) => {
+    setUserOpen(open);
+    if (open && users.length === 0) {
+      fetchUsers();
+    }
+    if (!open) {
+      setUserSearch('');
+    }
+  };
+
   const handleSelectClient = (client: Client) => {
     setSelectedClient(client);
     setForm(prev => ({ ...prev, client_id: String(client.id) }));
     setClientOpen(false);
   };
+
+  const toggleUserSelection = (user: SelectableUser) => {
+    setSelectedUsers((prev) => {
+      const exists = prev.some((item) => item.id === user.id);
+      if (exists) {
+        return prev.filter((item) => item.id !== user.id);
+      }
+      return [...prev, user];
+    });
+  };
+
+  const getUserLabel = (user: SelectableUser) => user.full_name || user.email;
 
   const handleChange = (field: keyof typeof form, value: string | number) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -205,6 +275,16 @@ export default function ProcessoEditPage() {
       const newClientId = form.client_id ? parseInt(form.client_id, 10) : undefined;
       if (newClientId && newClientId !== action?.client_id) {
         payload.client_id = newClientId;
+      }
+
+      const currentAssignedIds = (action?.assigned_users ?? []).map((user) => user.id).sort((a, b) => a - b);
+      const nextAssignedIds = selectedUsers.map((user) => user.id).sort((a, b) => a - b);
+      const assignedChanged =
+        currentAssignedIds.length !== nextAssignedIds.length ||
+        currentAssignedIds.some((id, index) => id !== nextAssignedIds[index]);
+
+      if (assignedChanged) {
+        payload.user_ids = nextAssignedIds;
       }
 
       // Se nenhum campo foi alterado
@@ -361,6 +441,85 @@ export default function ProcessoEditPage() {
                     </Command>
                   </PopoverContent>
                 </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-foreground">
+                  Usuarios vinculados
+                </label>
+                <Popover open={userOpen} onOpenChange={handleUsersOpenChange}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={userOpen}
+                      disabled={isLoading}
+                      className={cn(
+                        'w-full justify-between font-normal hover:bg-muted hover:text-foreground',
+                        selectedUsers.length === 0 && 'text-muted-foreground'
+                      )}
+                    >
+                      {selectedUsers.length === 0
+                        ? 'Selecione usuarios'
+                        : selectedUsers.length === 1
+                          ? getUserLabel(selectedUsers[0])
+                          : `${selectedUsers.length} usuarios selecionados`}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        placeholder="Buscar por nome ou e-mail"
+                        value={userSearch}
+                        onValueChange={setUserSearch}
+                      />
+                      <CommandList>
+                        <CommandEmpty>
+                          {loadingUsers
+                            ? 'Carregando...'
+                            : 'Nenhum usuario encontrado.'}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {users
+                            .filter((user) => {
+                              const term = userSearch.trim().toLowerCase();
+                              if (!term) return true;
+                              return [user.full_name, user.email]
+                                .filter(Boolean)
+                                .some((value) => value!.toLowerCase().includes(term));
+                            })
+                            .map((user) => {
+                              const isSelected = selectedUsers.some((item) => item.id === user.id);
+                              return (
+                                <CommandItem
+                                  key={user.id}
+                                  value={String(user.id)}
+                                  onSelect={() => toggleUserSelection(user)}
+                                >
+                                  <Check className={cn('mr-2 h-4 w-4', isSelected ? 'opacity-100' : 'opacity-0')} />
+                                  <span>{getUserLabel(user)}</span>
+                                  {user.full_name ? (
+                                    <span className="ml-2 text-muted-foreground text-xs">{user.email}</span>
+                                  ) : null}
+                                </CommandItem>
+                              );
+                            })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {selectedUsers.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedUsers.map((user) => (
+                      <Badge key={user.id} variant="secondary">
+                        {getUserLabel(user)}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <SelectField

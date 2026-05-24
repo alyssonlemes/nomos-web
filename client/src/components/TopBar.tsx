@@ -1,9 +1,10 @@
 import { Bell, User, ChevronDown, LogOut } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import { AuthService } from '@/services/auth.service';
 import { UserService } from '@/services/user.service';
 import type { UserResponse } from '@/services/user.service';
+import { NotificationService, NotificationResponse } from '@/services/notification.service';
 
 /**
  * Componente TopBar - Nomos
@@ -20,6 +21,8 @@ export default function TopBar({ userName, userEmail }: TopBarProps) {
   const [, setLocation] = useLocation();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [user, setUser] = useState<UserResponse | null>(null);
+  const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
 
   useEffect(() => {
     // Se as props não foram fornecidas, ler do localStorage
@@ -31,12 +34,79 @@ export default function TopBar({ userName, userEmail }: TopBarProps) {
     }
   }, [userName, userEmail]);
 
+  const loadNotifications = useCallback(async () => {
+    setIsLoadingNotifications(true);
+    try {
+      const data = await NotificationService.getNotifications(0, 5);
+      setNotifications(data.notifications ?? []);
+    } catch {
+      setNotifications([]);
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
+
+  useEffect(() => {
+    const token = AuthService.getToken();
+    if (!token) return;
+
+    const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const wsBaseUrl = apiBaseUrl.replace(/^http/, 'ws');
+    const ws = new WebSocket(`${wsBaseUrl}/api/v1/notifications/ws?token=${token}`);
+
+    ws.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data) as { type?: string; notifications?: NotificationResponse[] };
+        if (payload.type === 'snapshot' && Array.isArray(payload.notifications)) {
+          setNotifications(payload.notifications);
+          return;
+        }
+        if (payload.type === 'new' && Array.isArray(payload.notifications)) {
+          setNotifications((prev) => {
+            const existing = new Set(prev.map((item) => item.id));
+            const incoming = payload.notifications!.filter((item) => !existing.has(item.id));
+            return incoming.length > 0 ? [...incoming.reverse(), ...prev] : prev;
+          });
+        }
+      } catch {
+        // no-op
+      }
+    };
+
+    ws.onerror = () => {
+      loadNotifications();
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [loadNotifications]);
+
   const displayName = userName || user?.full_name || 'Usuário';
   const displayEmail = userEmail || user?.email || 'email@example.com';
 
   const handleLogout = () => {
     AuthService.logout();
     window.location.href = '/login';
+  };
+
+  const unreadCount = notifications.filter((item) => !item.read_at).length;
+
+  const formatRelativeTime = (value: string) => {
+    const created = new Date(value).getTime();
+    const now = Date.now();
+    const diffMs = Math.max(now - created, 0);
+    const minutes = Math.floor(diffMs / 60000);
+    if (minutes < 1) return 'Agora';
+    if (minutes < 60) return `Ha ${minutes} minuto${minutes > 1 ? 's' : ''}`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `Ha ${hours} hora${hours > 1 ? 's' : ''}`;
+    const days = Math.floor(hours / 24);
+    return `Ha ${days} dia${days > 1 ? 's' : ''}`;
   };
 
   return (
@@ -49,20 +119,37 @@ export default function TopBar({ userName, userEmail }: TopBarProps) {
       {/* Ações Direita */}
       <div className="flex items-center gap-6">
         {/* Notificações */}
-        <button className="relative p-2 hover:bg-muted rounded-none transition-colors group">
+        <button
+          className="relative p-2 hover:bg-muted rounded-none transition-colors group"
+          onMouseEnter={loadNotifications}
+        >
           <Bell className="w-5 h-5 text-foreground" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
+          )}
           <div className="absolute top-full right-0 mt-2 w-64 bg-card border border-border rounded-none shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 p-4">
             <p className="text-sm font-medium text-foreground mb-3">Notificações</p>
             <div className="space-y-2">
-              <div className="text-xs text-muted-foreground p-2 bg-muted rounded-none">
-                <p className="font-medium">Novo processo criado</p>
-                <p>Há 2 minutos</p>
-              </div>
-              <div className="text-xs text-muted-foreground p-2 bg-muted rounded-none">
-                <p className="font-medium">Prazo próximo</p>
-                <p>Há 1 hora</p>
-              </div>
+              {isLoadingNotifications && (
+                <div className="text-xs text-muted-foreground p-2 bg-muted rounded-none">
+                  Carregando...
+                </div>
+              )}
+              {!isLoadingNotifications && notifications.length === 0 && (
+                <div className="text-xs text-muted-foreground p-2 bg-muted rounded-none">
+                  Nenhuma notificacao ainda.
+                </div>
+              )}
+              {!isLoadingNotifications && notifications.map((item) => (
+                <div
+                  key={item.id}
+                  className="text-xs text-muted-foreground p-2 bg-muted rounded-none"
+                >
+                  <p className="font-medium text-foreground">{item.title}</p>
+                  <p>{item.message}</p>
+                  <p>{formatRelativeTime(item.created_at)}</p>
+                </div>
+              ))}
             </div>
           </div>
         </button>

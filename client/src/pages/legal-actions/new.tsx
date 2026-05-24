@@ -7,14 +7,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { AlertCircle, Loader2, ArrowLeft, ChevronsUpDown } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { AlertCircle, Loader2, ArrowLeft, ChevronsUpDown, Check } from 'lucide-react';
 import { LegalActionService, LegalStatus, LegalActionTypeEntity } from '@/services/legal-action.service';
 import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 import { ClientService, Client } from '@/services/client.service';
+import { UserService, UserResponse } from '@/services/user.service';
 import { SelectField } from '../../components/ui/select-field';
 import { cn } from '@/lib/utils';
 
 const CLIENT_PAGE_SIZE = 100;
+const USER_PAGE_SIZE = 200;
+
+type SelectableUser = Pick<UserResponse, 'id' | 'full_name' | 'email'>;
 
 export default function ProcessoNovoPage() {
   const [, setLocation] = useLocation();
@@ -28,6 +33,12 @@ export default function ProcessoNovoPage() {
   const [clientOpen, setClientOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+
+  const [users, setUsers] = useState<SelectableUser[]>([]);
+  const [userSearch, setUserSearch] = useState('');
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<SelectableUser[]>([]);
 
   const [form, setForm] = useState({
     number: '',
@@ -52,6 +63,13 @@ export default function ProcessoNovoPage() {
       .catch(() => setStatuses([]));
   }, []);
 
+  useEffect(() => {
+    const me = UserService.getStoredUser();
+    if (me) {
+      setSelectedUsers([{ id: me.id, full_name: me.full_name, email: me.email }]);
+    }
+  }, []);
+
   const fetchClients = useCallback(async (search: string) => {
     if (!search.trim()) {
       setClients([]);
@@ -67,6 +85,24 @@ export default function ProcessoNovoPage() {
       setClients([]);
     } finally {
       setLoadingClients(false);
+    }
+  }, []);
+
+  const fetchUsers = useCallback(async () => {
+    setLoadingUsers(true);
+    try {
+      const res = await UserService.getUsers(0, USER_PAGE_SIZE);
+      setUsers(
+        (res.users ?? []).map((user) => ({
+          id: user.id,
+          full_name: user.full_name,
+          email: user.email,
+        }))
+      );
+    } catch {
+      setUsers([]);
+    } finally {
+      setLoadingUsers(false);
     }
   }, []);
 
@@ -89,6 +125,16 @@ export default function ProcessoNovoPage() {
     }
   };
 
+  const handleUsersOpenChange = (open: boolean) => {
+    setUserOpen(open);
+    if (open && users.length === 0) {
+      fetchUsers();
+    }
+    if (!open) {
+      setUserSearch('');
+    }
+  };
+
   const handleChange = (field: keyof typeof form, value: string | number) => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
@@ -98,6 +144,18 @@ export default function ProcessoNovoPage() {
     setForm(prev => ({ ...prev, client_id: String(client.id) }));
     setClientOpen(false);
   };
+
+  const toggleUserSelection = (user: SelectableUser) => {
+    setSelectedUsers((prev) => {
+      const exists = prev.some((item) => item.id === user.id);
+      if (exists) {
+        return prev.filter((item) => item.id !== user.id);
+      }
+      return [...prev, user];
+    });
+  };
+
+  const getUserLabel = (user: SelectableUser) => user.full_name || user.email;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,6 +175,7 @@ export default function ProcessoNovoPage() {
         title: form.title,
         client_id: clientId,
         action_type_id: actionTypeId,
+        user_ids: selectedUsers.map((user) => user.id),
         ...(form.description && { description: form.description }),
         ...(form.legal_status && { legal_status: form.legal_status as LegalStatus }),
         ...(form.court_name && { court_name: form.court_name }),
@@ -175,6 +234,85 @@ export default function ProcessoNovoPage() {
                   required
                   minLength={3}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-foreground">
+                  Usuarios vinculados
+                </label>
+                <Popover open={userOpen} onOpenChange={handleUsersOpenChange}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={userOpen}
+                      disabled={isLoading}
+                      className={cn(
+                        'w-full justify-between font-normal hover:bg-muted hover:text-foreground',
+                        selectedUsers.length === 0 && 'text-muted-foreground'
+                      )}
+                    >
+                      {selectedUsers.length === 0
+                        ? 'Selecione usuarios'
+                        : selectedUsers.length === 1
+                          ? getUserLabel(selectedUsers[0])
+                          : `${selectedUsers.length} usuarios selecionados`}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        placeholder="Buscar por nome ou e-mail"
+                        value={userSearch}
+                        onValueChange={setUserSearch}
+                      />
+                      <CommandList>
+                        <CommandEmpty>
+                          {loadingUsers
+                            ? 'Carregando...'
+                            : 'Nenhum usuario encontrado.'}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {users
+                            .filter((user) => {
+                              const term = userSearch.trim().toLowerCase();
+                              if (!term) return true;
+                              return [user.full_name, user.email]
+                                .filter(Boolean)
+                                .some((value) => value!.toLowerCase().includes(term));
+                            })
+                            .map((user) => {
+                              const isSelected = selectedUsers.some((item) => item.id === user.id);
+                              return (
+                                <CommandItem
+                                  key={user.id}
+                                  value={String(user.id)}
+                                  onSelect={() => toggleUserSelection(user)}
+                                >
+                                  <Check className={cn('mr-2 h-4 w-4', isSelected ? 'opacity-100' : 'opacity-0')} />
+                                  <span>{getUserLabel(user)}</span>
+                                  {user.full_name ? (
+                                    <span className="ml-2 text-muted-foreground text-xs">{user.email}</span>
+                                  ) : null}
+                                </CommandItem>
+                              );
+                            })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {selectedUsers.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedUsers.map((user) => (
+                      <Badge key={user.id} variant="secondary">
+                        {getUserLabel(user)}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
