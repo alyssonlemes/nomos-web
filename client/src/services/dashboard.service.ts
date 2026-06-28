@@ -26,8 +26,8 @@ export class DashboardService {
     );
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Erro ao buscar estatísticas do dashboard');
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || error.message || 'Erro ao buscar estatísticas do dashboard');
     }
 
     return response.json();

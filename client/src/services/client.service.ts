@@ -74,8 +74,8 @@ export class ClientService {
     );
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Erro ao buscar clientes');
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || error.message || 'Erro ao buscar clientes');
     }
 
     const data = await response.json();
@@ -97,8 +97,8 @@ export class ClientService {
     );
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Erro ao buscar cliente');
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || error.message || 'Erro ao buscar cliente');
     }
 
     return response.json();
@@ -156,8 +156,8 @@ export class ClientService {
     );
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Erro ao deletar cliente');
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || error.message || 'Erro ao deletar cliente');
     }
   }
 }
