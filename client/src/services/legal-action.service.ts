@@ -2,6 +2,72 @@ import { AuthService } from './auth.service';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+// ─────────────────── Interfaces DataJud Auto-Complete ────────────────────
+
+export interface DataJudAssunto {
+  codigo?: string | null;
+  nome?: string | null;
+}
+
+export interface DataJudMovimento {
+  codigo?: string | null;
+  nome: string;
+  data_hora?: string | null;
+  complemento?: Record<string, unknown> | null;
+}
+
+export interface DataJudProcessoDados {
+  numero_cnj: string;
+  tribunal?: string | null;
+  classe_processual_codigo?: string | null;
+  classe_processual_nome?: string | null;
+  assuntos?: DataJudAssunto[] | null;
+  orgao_julgador?: string | null;
+  comarca?: string | null;
+  vara?: string | null;
+  competencia?: string | null;
+  magistrado?: string | null;
+  court_name?: string | null;
+  data_ajuizamento?: string | null;
+  data_distribuicao?: string | null;
+  valor_causa?: string | null;
+  segredo_justica: boolean;
+  datajud_last_update?: string | null;
+  movimentos?: DataJudMovimento[] | null;
+  area_juridica?: string | null;
+}
+
+export interface DataJudParteEncontrada {
+  nome: string;
+  documento?: string | null;
+  polo?: string | null;
+  tipo_participacao?: string | null;
+  oab?: string | null;
+  client_id: number;
+  client_name: string;
+  match_tipo: 'documento' | 'nome_fuzzy';
+  match_score?: number | null;
+}
+
+export interface DataJudParteSugestao {
+  nome: string;
+  documento?: string | null;
+  polo?: string | null;
+  tipo_participacao?: string | null;
+  oab?: string | null;
+  client_type?: 'individual' | 'business' | null;
+}
+
+export interface DataJudAutoCompleteResponse {
+  processo_encontrado: boolean;
+  processo_existente_id?: number | null;
+  dados?: DataJudProcessoDados | null;
+  partes_encontradas: DataJudParteEncontrada[];
+  partes_nao_encontradas: DataJudParteSugestao[];
+  aviso?: string | null;
+}
+
+
 // Tipo de ação retornado pela API (GET /legal-action-types e aninhado em LegalAction)
 export interface LegalActionTypeEntity {
   id: number;
@@ -26,6 +92,24 @@ export enum LegalStatus {
   ARCHIVED = 'archived',
 }
 
+export interface ProcessoParteEntity {
+  id: number;
+  polo: string | null;
+  tipo_participacao: string | null;
+  nome: string;
+  documento: string | null;
+  oab: string | null;
+  client_id: number | null;
+}
+
+export interface ProcessoMovimentoEntity {
+  id: number;
+  codigo: string | null;
+  nome: string;
+  data_hora: string | null;
+  complemento_json: string | null;
+}
+
 export interface LegalAction {
   id: number;
   number: string;
@@ -45,6 +129,24 @@ export interface LegalAction {
   created_at: string;
   updated_at: string | null;
   client_name?: string;
+
+  // Campos DataJud (CNJ)
+  tribunal?: string | null;
+  comarca?: string | null;
+  vara?: string | null;
+  orgao_julgador?: string | null;
+  competencia?: string | null;
+  magistrado?: string | null;
+  classe_processual_codigo?: string | null;
+  classe_processual_nome?: string | null;
+  assuntos_json?: string | null;
+  data_distribuicao?: string | null;
+  valor_causa?: number | null;
+  segredo_justica?: boolean;
+  datajud_synced_at?: string | null;
+
+  partes?: ProcessoParteEntity[];
+  movimentos?: ProcessoMovimentoEntity[];
 }
 
 export interface LegalActionCreate {
@@ -57,6 +159,20 @@ export interface LegalActionCreate {
   filing_date?: string | null;
   client_id: number;
   user_ids?: number[];
+
+  // Campos DataJud opcionais
+  tribunal?: string | null;
+  comarca?: string | null;
+  vara?: string | null;
+  orgao_julgador?: string | null;
+  competencia?: string | null;
+  magistrado?: string | null;
+  classe_processual_codigo?: string | null;
+  classe_processual_nome?: string | null;
+  assuntos_json?: string | null;
+  data_distribuicao?: string | null;
+  valor_causa?: number | null;
+  segredo_justica?: boolean;
 }
 
 export interface LegalActionUpdate {
@@ -69,6 +185,20 @@ export interface LegalActionUpdate {
   closing_date?: string | null;
   client_id?: number;
   user_ids?: number[];
+
+  // Campos DataJud opcionais
+  tribunal?: string | null;
+  comarca?: string | null;
+  vara?: string | null;
+  orgao_julgador?: string | null;
+  competencia?: string | null;
+  magistrado?: string | null;
+  classe_processual_codigo?: string | null;
+  classe_processual_nome?: string | null;
+  assuntos_json?: string | null;
+  data_distribuicao?: string | null;
+  valor_causa?: number | null;
+  segredo_justica?: boolean;
 }
 
 // Resposta crua da API (conforme doc)
@@ -190,5 +320,30 @@ export class LegalActionService {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || error.message || 'Erro ao excluir processo');
     }
+  }
+
+  /**
+   * Consulta o DataJud pelo número CNJ e retorna os dados para pre-fill do formulário.
+   * Endpoint: GET /api/integracao/datajud/autocomplete?numero_cnj=...
+   */
+  static async autoCompleteByCNJ(numeroCNJ: string): Promise<DataJudAutoCompleteResponse> {
+    const params = new URLSearchParams({ numero_cnj: numeroCNJ.trim() });
+    const response = await AuthService.authenticatedFetch(
+      `${API_BASE_URL}/api/v1/integracao/datajud/autocomplete?${params.toString()}`,
+      { method: 'GET' }
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      const detail = error.detail || error.message;
+      // Repassar código HTTP para o chamador tratar diferente
+      const err = new Error(
+        typeof detail === 'string' ? detail : 'Erro ao consultar DataJud'
+      ) as Error & { status?: number };
+      err.status = response.status;
+      throw err;
+    }
+
+    return response.json();
   }
 }

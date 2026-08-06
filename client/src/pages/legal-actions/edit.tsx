@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Loader2, ArrowLeft, ChevronsUpDown, Check } from 'lucide-react';
+import { AlertCircle, Loader2, ArrowLeft, ChevronsUpDown, Check, RefreshCw, Database } from 'lucide-react';
 import { LegalActionService, LegalAction, LegalStatus, LegalActionTypeEntity } from '@/services/legal-action.service';
 import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 import { ClientService, Client } from '@/services/client.service';
@@ -40,6 +40,9 @@ export default function ProcessoEditPage() {
     court_name: '',
     filing_date: '',
     closing_date: '',
+    assunto: '',
+    orgao_julgador: '',
+    valor_causa: '',
   });
 
   const [clients, setClients] = useState<Client[]>([]);
@@ -54,6 +57,9 @@ export default function ProcessoEditPage() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<SelectableUser[]>([]);
+
+  const [isConsultingDatajud, setIsConsultingDatajud] = useState(false);
+  const [datajudSyncMsg, setDatajudSyncMsg] = useState('');
 
   const actionId = params?.id ? parseInt(params.id) : null;
 
@@ -89,6 +95,18 @@ export default function ProcessoEditPage() {
           ? rawLegalStatus
           : rawLegalStatus?.code) || LegalStatus.PRE_TRIAL;
 
+      let assuntosStr = '';
+      if (data.assuntos_json) {
+        try {
+          const parsed = JSON.parse(data.assuntos_json);
+          if (Array.isArray(parsed)) {
+            assuntosStr = parsed.map((a: any) => (a.codigo ? `[${a.codigo}] ` : '') + (a.nome || '')).join('; ');
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       // Preencher formulário com dados atuais
       setForm({
         title: data.title || '',
@@ -99,6 +117,9 @@ export default function ProcessoEditPage() {
         court_name: data.court_name || '',
         filing_date: data.filing_date ? data.filing_date.split('T')[0] : '',
         closing_date: data.closing_date ? data.closing_date.split('T')[0] : '',
+        assunto: assuntosStr,
+        orgao_julgador: data.orgao_julgador || '',
+        valor_causa: data.valor_causa != null ? String(data.valor_causa) : '',
       });
 
       // A API retorna só client_id; buscar cliente para exibir o nome
@@ -276,6 +297,15 @@ export default function ProcessoEditPage() {
       if (newClientId && newClientId !== action?.client_id) {
         payload.client_id = newClientId;
       }
+      if (form.orgao_julgador !== (action?.orgao_julgador || '')) {
+        payload.orgao_julgador = form.orgao_julgador || null;
+      }
+      if (form.valor_causa !== (action?.valor_causa != null ? String(action.valor_causa) : '')) {
+        payload.valor_causa = form.valor_causa ? Number(form.valor_causa) : null;
+      }
+      if (form.assunto) {
+        payload.assuntos_json = JSON.stringify([{ codigo: '', nome: form.assunto }]);
+      }
 
       const currentAssignedIds = (action?.assigned_users ?? []).map((user) => user.id).sort((a, b) => a - b);
       const nextAssignedIds = selectedUsers.map((user) => user.id).sort((a, b) => a - b);
@@ -353,6 +383,55 @@ export default function ProcessoEditPage() {
         )}
 
         <form onSubmit={handleSubmit}>
+
+          {/* ── DataJud Sync Info ──────────────────────────────────────── */}
+          {action && (action as any).datajud_synced_at && (
+            <Card className="mb-6 border-primary/20 bg-primary/5">
+              <CardHeader className="py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Database className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">Sincronizado via DataJud</span>
+                    <span className="text-xs text-muted-foreground">
+                      em {new Date((action as any).datajud_synced_at).toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    id="btn-re-sincronizar-datajud"
+                    disabled={isConsultingDatajud || isLoading}
+                    onClick={async () => {
+                      setIsConsultingDatajud(true);
+                      setDatajudSyncMsg('');
+                      try {
+                        await LegalActionService.autoCompleteByCNJ(action.number);
+                        setDatajudSyncMsg('Dados consultados. Recarregue para ver as atualizações.');
+                        loadAction(actionId!);
+                      } catch (err) {
+                        setDatajudSyncMsg(err instanceof Error ? err.message : 'Erro ao consultar DataJud');
+                      } finally {
+                        setIsConsultingDatajud(false);
+                      }
+                    }}
+                    className="text-xs"
+                  >
+                    {isConsultingDatajud ? (
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                    )}
+                    Re-sincronizar DataJud
+                  </Button>
+                </div>
+                {datajudSyncMsg && (
+                  <p className="text-xs mt-1 text-muted-foreground">{datajudSyncMsg}</p>
+                )}
+              </CardHeader>
+            </Card>
+          )}
+
           <Card className="mb-6">
             <CardHeader>
               <CardTitle>Dados da Ação</CardTitle>
@@ -390,6 +469,7 @@ export default function ProcessoEditPage() {
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-foreground">
                   Cliente
+                  <span className="ml-2 text-xs text-muted-foreground font-normal">(pode ser alterado)</span>
                 </label>
                 <Popover open={clientOpen} onOpenChange={handlePopoverOpenChange}>
                   <PopoverTrigger asChild>
@@ -577,6 +657,43 @@ export default function ProcessoEditPage() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <label htmlFor="assunto" className="block text-sm font-medium text-foreground">Assunto(s) do Processo</label>
+                <Input
+                  id="assunto"
+                  placeholder="Ex: IRPJ/Imposto de Renda"
+                  value={form.assunto}
+                  onChange={(e) => handleChange('assunto', e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label htmlFor="orgao_julgador" className="block text-sm font-medium text-foreground">Órgão Julgador</label>
+                  <Input
+                    id="orgao_julgador"
+                    placeholder="Ex: Gab. 09 / 1ª Vara Cível"
+                    value={form.orgao_julgador}
+                    onChange={(e) => handleChange('orgao_julgador', e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="valor_causa" className="block text-sm font-medium text-foreground">Valor da Causa (R$)</label>
+                  <Input
+                    id="valor_causa"
+                    type="number"
+                    step="0.01"
+                    placeholder="Ex: 50000.00"
+                    value={form.valor_causa}
+                    onChange={(e) => handleChange('valor_causa', e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label htmlFor="filing_date" className="block text-sm font-medium text-foreground">Data de Distribuição</label>
@@ -600,6 +717,42 @@ export default function ProcessoEditPage() {
                   />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Movimentações do Processo (Sempre visível) ──────────────────── */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-base">
+                Movimentações do Processo
+                {action?.movimentos && (
+                  <Badge variant="secondary" className="ml-2 font-mono">
+                    {action.movimentos.length}
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription>Histórico de andamentos sincronizado com o DataJud ou cadastrado no sistema</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {action?.movimentos && action.movimentos.length > 0 ? (
+                <div className="max-h-60 overflow-y-auto space-y-2 pr-1 text-xs">
+                  {action.movimentos.map((mov) => (
+                    <div key={mov.id} className="flex items-start justify-between gap-3 bg-muted/40 p-2.5 rounded border border-border/50">
+                      <div>
+                        <p className="font-medium text-foreground">{mov.nome}</p>
+                        {mov.codigo && <span className="text-[11px] text-muted-foreground">Código TPU: {mov.codigo}</span>}
+                      </div>
+                      <span className="text-muted-foreground shrink-0 font-mono text-[11px]">
+                        {mov.data_hora ? new Date(mov.data_hora).toLocaleString('pt-BR') : '—'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground py-4 text-center border border-dashed rounded-md bg-muted/20">
+                  Nenhuma movimentação registrada. Clique em "Re-sincronizar DataJud" acima para buscar os andamentos no CNJ.
+                </div>
+              )}
             </CardContent>
           </Card>
 

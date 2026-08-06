@@ -5,13 +5,38 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Loader2, ArrowLeft, ChevronsUpDown, Check } from 'lucide-react';
-import { LegalActionService, LegalStatus, LegalActionTypeEntity } from '@/services/legal-action.service';
+import {
+  AlertCircle,
+  Loader2,
+  ArrowLeft,
+  ChevronsUpDown,
+  Check,
+  Search,
+  Info,
+  UserPlus,
+  Shield,
+  History as HistoryIcon,
+} from 'lucide-react';
+import {
+  LegalActionService,
+  LegalStatus,
+  LegalActionTypeEntity,
+  DataJudAutoCompleteResponse,
+  DataJudParteSugestao,
+} from '@/services/legal-action.service';
 import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
-import { ClientService, Client } from '@/services/client.service';
+import { ClientService, Client, CreateClientData } from '@/services/client.service';
 import { UserService, UserResponse } from '@/services/user.service';
 import { SelectField } from '../../components/ui/select-field';
 import { cn } from '@/lib/utils';
@@ -20,6 +45,14 @@ const CLIENT_PAGE_SIZE = 100;
 const USER_PAGE_SIZE = 200;
 
 type SelectableUser = Pick<UserResponse, 'id' | 'full_name' | 'email'>;
+
+interface PendingClientCreation {
+  parte: DataJudParteSugestao;
+  creating: boolean;
+  created: boolean;
+  createdClientId?: number;
+  error?: string;
+}
 
 export default function ProcessoNovoPage() {
   const [, setLocation] = useLocation();
@@ -40,6 +73,16 @@ export default function ProcessoNovoPage() {
   const [userOpen, setUserOpen] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<SelectableUser[]>([]);
 
+  // ─── DataJud Auto-Complete ────────────────────────────────────────────────
+  const [isConsulting, setIsConsulting] = useState(false);
+  const [datajudResult, setDatajudResult] = useState<DataJudAutoCompleteResponse | null>(null);
+  const [datajudWarning, setDatajudWarning] = useState('');
+  const [datajudError, setDatajudError] = useState('');
+
+  // Modal de confirmação para partes não cadastradas
+  const [showPartesModal, setShowPartesModal] = useState(false);
+  const [pendingPartes, setPendingPartes] = useState<PendingClientCreation[]>([]);
+
   const [form, setForm] = useState({
     number: '',
     title: '',
@@ -49,6 +92,9 @@ export default function ProcessoNovoPage() {
     legal_status: LegalStatus.PRE_TRIAL,
     court_name: '',
     filing_date: '',
+    assunto: '',
+    orgao_julgador: '',
+    valor_causa: '',
   });
 
   useEffect(() => {
@@ -69,6 +115,131 @@ export default function ProcessoNovoPage() {
       setSelectedUsers([{ id: me.id, full_name: me.full_name, email: me.email }]);
     }
   }, []);
+
+  // ─── Auto-Complete: consultar DataJud ────────────────────────────────────
+
+  const handleConsultarDataJud = useCallback(async () => {
+    const numeroCNJ = form.number.trim();
+    if (!numeroCNJ || numeroCNJ.length < 20) {
+      setDatajudError('Informe o número CNJ completo antes de consultar (mín. 20 dígitos).');
+      return;
+    }
+
+    setIsConsulting(true);
+    setDatajudError('');
+    setDatajudWarning('');
+    setDatajudResult(null);
+
+    try {
+      const result = await LegalActionService.autoCompleteByCNJ(numeroCNJ);
+      setDatajudResult(result);
+
+      if (!result.processo_encontrado) {
+        setDatajudError(result.aviso || 'Processo não encontrado no DataJud para este número CNJ.');
+        return;
+      }
+
+      if (result.aviso) {
+        setDatajudWarning(result.aviso);
+      }
+
+      // Pre-fill do formulário com dados do DataJud
+      const dados = result.dados;
+      if (dados) {
+        const assuntoStr = dados.assuntos
+          ? dados.assuntos.map((a) => (a.codigo ? `[${a.codigo}] ` : '') + a.nome).join('; ')
+          : '';
+        setForm((prev) => ({
+          ...prev,
+          title: prev.title || dados.classe_processual_nome || dados.orgao_julgador || numeroCNJ,
+          court_name: prev.court_name || dados.court_name || dados.orgao_julgador || '',
+          filing_date: prev.filing_date || (dados.data_ajuizamento?.split('T')[0] ?? ''),
+          assunto: prev.assunto || assuntoStr,
+          orgao_julgador: prev.orgao_julgador || dados.orgao_julgador || '',
+          valor_causa: prev.valor_causa || (dados.valor_causa ? String(dados.valor_causa) : ''),
+        }));
+      }
+
+      // Partes já cadastradas → pre-selecionar o primeiro cliente encontrado (polo ativo)
+      if (result.partes_encontradas.length > 0) {
+        const partePrincipal = result.partes_encontradas.find(p => p.polo === 'ativo') ?? result.partes_encontradas[0];
+        if (partePrincipal && !form.client_id) {
+          setForm(prev => ({ ...prev, client_id: String(partePrincipal.client_id) }));
+          // Buscar cliente para exibir nome
+          try {
+            const cli = await ClientService.getClientById(partePrincipal.client_id);
+            setSelectedClient(cli);
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      // Partes não cadastradas → abrir modal de confirmação
+      if (result.partes_nao_encontradas.length > 0) {
+        setPendingPartes(
+          result.partes_nao_encontradas.map(p => ({
+            parte: p,
+            creating: false,
+            created: false,
+          }))
+        );
+        setShowPartesModal(true);
+      }
+    } catch (err) {
+      const e = err as Error & { status?: number };
+      if (e.status === 429) {
+        setDatajudError('Limite de requisições atingido. Aguarde alguns segundos e tente novamente.');
+      } else if (e.status === 422) {
+        setDatajudError(e.message || 'Número CNJ inválido ou tribunal não suportado.');
+      } else {
+        setDatajudError(e.message || 'Erro ao consultar DataJud. Verifique a conexão e tente novamente.');
+      }
+    } finally {
+      setIsConsulting(false);
+    }
+  }, [form.number, form.client_id]);
+
+  // ─── Criação de cliente a partir de parte não cadastrada ─────────────────
+
+  const handleCriarCliente = async (index: number) => {
+    const entry = pendingPartes[index];
+    const { parte } = entry;
+
+    setPendingPartes(prev =>
+      prev.map((p, i) => (i === index ? { ...p, creating: true, error: undefined } : p))
+    );
+
+    try {
+      const clientData: CreateClientData = {
+        name: parte.nome,
+        document: parte.documento || `SEM_DOC_${Date.now()}`,
+        client_type: parte.client_type ?? 'individual',
+        status: 'active',
+      };
+
+      const novoCliente = await ClientService.createClient(clientData);
+
+      setPendingPartes(prev =>
+        prev.map((p, i) =>
+          i === index ? { ...p, creating: false, created: true, createdClientId: novoCliente.id } : p
+        )
+      );
+
+      // Se ainda não há cliente selecionado e é polo ativo, pre-selecionar
+      if (!form.client_id && parte.polo === 'ativo') {
+        setSelectedClient(novoCliente);
+        setForm(prev => ({ ...prev, client_id: String(novoCliente.id) }));
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao criar cliente';
+      setPendingPartes(prev =>
+        prev.map((p, i) => (i === index ? { ...p, creating: false, error: msg } : p))
+      );
+    }
+  };
+
+  // ─── Helpers de formulário ────────────────────────────────────────────────
 
   const fetchClients = useCallback(async (search: string) => {
     if (!search.trim()) {
@@ -118,7 +289,6 @@ export default function ProcessoNovoPage() {
   const handlePopoverOpenChange = (open: boolean) => {
     setClientOpen(open);
     if (!open) {
-      // Limpar busca e lista quando fechar
       setClientSearch('');
       setClients([]);
       setHasSearched(false);
@@ -180,9 +350,37 @@ export default function ProcessoNovoPage() {
         ...(form.legal_status && { legal_status: form.legal_status as LegalStatus }),
         ...(form.court_name && { court_name: form.court_name }),
         ...(form.filing_date && { filing_date: form.filing_date }),
+        ...(form.orgao_julgador && { orgao_julgador: form.orgao_julgador }),
+        ...(form.valor_causa && { valor_causa: Number(form.valor_causa) }),
+        ...(form.assunto && {
+          assuntos_json: datajudResult?.dados?.assuntos
+            ? JSON.stringify(datajudResult.dados.assuntos)
+            : JSON.stringify([{ codigo: '', nome: form.assunto }]),
+        }),
+        ...(datajudResult?.dados && {
+          tribunal: datajudResult.dados.tribunal ?? undefined,
+          comarca: datajudResult.dados.comarca ?? undefined,
+          vara: datajudResult.dados.vara ?? undefined,
+          competencia: datajudResult.dados.competencia ?? undefined,
+          magistrado: datajudResult.dados.magistrado ?? undefined,
+          classe_processual_codigo: datajudResult.dados.classe_processual_codigo ?? undefined,
+          classe_processual_nome: datajudResult.dados.classe_processual_nome ?? undefined,
+          data_distribuicao: datajudResult.dados.data_distribuicao ?? undefined,
+          segredo_justica: datajudResult.dados.segredo_justica,
+        }),
       };
 
       await LegalActionService.createLegalAction(payload);
+
+      // Auto-sync no backend para salvar as partes e movimentações nas tabelas 1:N
+      if (datajudResult?.processo_encontrado) {
+        try {
+          await LegalActionService.autoCompleteByCNJ(form.number);
+        } catch {
+          // ignore background sync errors
+        }
+      }
+
       setLocation('/legal-actions');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar processo';
@@ -190,6 +388,10 @@ export default function ProcessoNovoPage() {
       setIsLoading(false);
     }
   };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <div className="p-8 min-h-full">
@@ -215,6 +417,132 @@ export default function ProcessoNovoPage() {
         )}
 
         <form onSubmit={handleSubmit}>
+          {/* ── Card 1: Auto-Complete DataJud ──────────────────────────────── */}
+          <Card className="mb-6 border-primary/20 bg-primary/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Search className="w-4 h-4 text-primary" />
+                Auto-Complete via DataJud (CNJ)
+              </CardTitle>
+              <CardDescription>
+                Digite o número CNJ e clique em Consultar para preencher os dados automaticamente.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-3 items-end">
+                <div className="flex-1 space-y-2">
+                  <label htmlFor="number" className="block text-sm font-medium text-foreground">
+                    Número do Processo (CNJ) <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    id="number"
+                    placeholder="Ex: 0001234-56.2025.8.26.0100"
+                    value={form.number}
+                    onChange={(e) => {
+                      handleChange('number', e.target.value);
+                      setDatajudError('');
+                      setDatajudWarning('');
+                    }}
+                    disabled={isLoading || isConsulting}
+                    required
+                    minLength={3}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  id="btn-consultar-datajud"
+                  onClick={handleConsultarDataJud}
+                  disabled={isLoading || isConsulting || !form.number.trim()}
+                  className="shrink-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                >
+                  {isConsulting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Consultando...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4 mr-2" />
+                      Consultar DataJud
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Erro DataJud */}
+              {datajudError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{datajudError}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Aviso DataJud (ex: segredo de justiça) */}
+              {datajudWarning && (
+                <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-700">
+                  <Shield className="h-4 w-4 text-amber-600" />
+                  <AlertDescription>{datajudWarning}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Processo já cadastrado */}
+              {datajudResult?.processo_existente_id && (
+                <Alert className="border-blue-500/50 bg-blue-500/10 text-blue-700">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertDescription>
+                    Este processo já está cadastrado na sua organização.{' '}
+                    <button
+                      type="button"
+                      className="underline font-medium"
+                      onClick={() => setLocation(`/legal-actions/${datajudResult.processo_existente_id}/editar`)}
+                    >
+                      Clique aqui para editá-lo.
+                    </button>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+
+
+              {/* Partes encontradas */}
+              {datajudResult?.partes_encontradas && datajudResult.partes_encontradas.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Partes identificadas</p>
+                  <div className="flex flex-wrap gap-2">
+                    {datajudResult.partes_encontradas.map((parte, idx) => (
+                      <Badge key={idx} variant="outline" className="text-xs">
+                        <Check className="w-3 h-3 mr-1 text-green-600" />
+                        {parte.nome}
+                        <span className="ml-1 text-muted-foreground">({parte.polo})</span>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Partes não cadastradas */}
+              {datajudResult?.partes_nao_encontradas && datajudResult.partes_nao_encontradas.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {datajudResult.partes_nao_encontradas.length} parte(s) não cadastrada(s)
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    id="btn-ver-partes-nao-cadastradas"
+                    onClick={() => setShowPartesModal(true)}
+                  >
+                    <UserPlus className="w-3 h-3 mr-1" />
+                    Ver e cadastrar partes
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ── Card 2: Dados da Ação ─────────────────────────────────────── */}
           <Card className="mb-6">
             <CardHeader>
               <CardTitle>Dados da Ação</CardTitle>
@@ -222,23 +550,8 @@ export default function ProcessoNovoPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <label htmlFor="number" className="block text-sm font-medium text-foreground">
-                  Número <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  id="number"
-                  placeholder="Ex: 0001234-56.2025.8.26.0100"
-                  value={form.number}
-                  onChange={(e) => handleChange('number', e.target.value)}
-                  disabled={isLoading}
-                  required
-                  minLength={3}
-                />
-              </div>
-
-              <div className="space-y-2">
                 <label className="block text-sm font-medium text-foreground">
-                  Usuarios vinculados
+                  Usuários vinculados
                 </label>
                 <Popover open={userOpen} onOpenChange={handleUsersOpenChange}>
                   <PopoverTrigger asChild>
@@ -254,10 +567,10 @@ export default function ProcessoNovoPage() {
                       )}
                     >
                       {selectedUsers.length === 0
-                        ? 'Selecione usuarios'
+                        ? 'Selecione usuários'
                         : selectedUsers.length === 1
                           ? getUserLabel(selectedUsers[0])
-                          : `${selectedUsers.length} usuarios selecionados`}
+                          : `${selectedUsers.length} usuários selecionados`}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -270,9 +583,7 @@ export default function ProcessoNovoPage() {
                       />
                       <CommandList>
                         <CommandEmpty>
-                          {loadingUsers
-                            ? 'Carregando...'
-                            : 'Nenhum usuario encontrado.'}
+                          {loadingUsers ? 'Carregando...' : 'Nenhum usuário encontrado.'}
                         </CommandEmpty>
                         <CommandGroup>
                           {users
@@ -418,8 +729,6 @@ export default function ProcessoNovoPage() {
                   onChange={(e: { target: { value: string } }) => handleChange('legal_status', e.target.value)}
                   disabled={isLoading}
                   options={[
-                    // Evita duplicar o código "pre_trial": só adiciona o padrão
-                    // se ainda não existir um status com esse código vindo da API.
                     ...(!statuses.some((status) => status.code === LegalStatus.PRE_TRIAL)
                       ? [{ value: LegalStatus.PRE_TRIAL, label: 'Pendente (pré-configurado)' }]
                       : []),
@@ -431,10 +740,10 @@ export default function ProcessoNovoPage() {
                 />
 
                 <div className="space-y-2">
-                  <label htmlFor="court_name" className="block text-sm font-medium text-foreground">Nome do Fórum</label>
+                  <label htmlFor="court_name" className="block text-sm font-medium text-foreground">Tribunal / Fórum</label>
                   <Input
                     id="court_name"
-                    placeholder="Ex: Fórum X"
+                    placeholder="Ex: TJSP — Vara Cível"
                     value={form.court_name}
                     onChange={(e) => handleChange('court_name', e.target.value)}
                     disabled={isLoading}
@@ -443,7 +752,45 @@ export default function ProcessoNovoPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="filing_date" className="block text-sm font-medium text-foreground">Data de Distribuição</label>
+                <label htmlFor="assunto" className="block text-sm font-medium text-foreground">
+                  Assunto(s) do Processo
+                </label>
+                <Input
+                  id="assunto"
+                  placeholder="Ex: IRPJ/Imposto de Renda, Indenização por Dano Moral"
+                  value={form.assunto}
+                  onChange={(e) => handleChange('assunto', e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label htmlFor="orgao_julgador" className="block text-sm font-medium text-foreground">Órgão Julgador</label>
+                  <Input
+                    id="orgao_julgador"
+                    placeholder="Ex: 1ª Vara Cível / Gab. 09"
+                    value={form.orgao_julgador}
+                    onChange={(e) => handleChange('orgao_julgador', e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="valor_causa" className="block text-sm font-medium text-foreground">Valor da Causa (R$)</label>
+                  <Input
+                    id="valor_causa"
+                    type="number"
+                    step="0.01"
+                    placeholder="Ex: 50000.00"
+                    value={form.valor_causa}
+                    onChange={(e) => handleChange('valor_causa', e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="filing_date" className="block text-sm font-medium text-foreground">Data de Ajuizamento / Distribuição</label>
                 <Input
                   id="filing_date"
                   type="date"
@@ -452,7 +799,45 @@ export default function ProcessoNovoPage() {
                   disabled={isLoading}
                 />
               </div>
+            </CardContent>
+          </Card>
 
+          {/* ── Card 3: Movimentações do Processo (Sempre visível) ──────────── */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <HistoryIcon className="w-4 h-4 text-primary" />
+                Movimentações do Processo
+                {datajudResult?.dados?.movimentos && (
+                  <Badge variant="secondary" className="ml-1 font-mono">
+                    {datajudResult.dados.movimentos.length}
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription>
+                Andamentos históricos do processo (sincronizados via DataJud ou cadastrados no sistema)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {datajudResult?.dados?.movimentos && datajudResult.dados.movimentos.length > 0 ? (
+                <div className="max-h-64 overflow-y-auto space-y-2 pr-1 text-xs">
+                  {datajudResult.dados.movimentos.map((mov, i) => (
+                    <div key={i} className="flex items-start justify-between gap-3 bg-muted/40 p-2.5 rounded border border-border/50">
+                      <div>
+                        <p className="font-medium text-foreground">{mov.nome}</p>
+                        {mov.codigo && <span className="text-[11px] text-muted-foreground">Código TPU: {mov.codigo}</span>}
+                      </div>
+                      <span className="text-muted-foreground shrink-0 font-mono text-[11px]">
+                        {mov.data_hora ? new Date(mov.data_hora).toLocaleString('pt-BR') : '—'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground py-4 text-center border border-dashed rounded-md bg-muted/20">
+                  Nenhuma movimentação importada ainda. Ao consultar o DataJud pelo número CNJ acima, os andamentos do processo serão carregados e salvos automaticamente aqui.
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -482,6 +867,95 @@ export default function ProcessoNovoPage() {
           </div>
         </form>
       </div>
+
+      {/* ── Modal: Partes não cadastradas ────────────────────────────────── */}
+      <Dialog open={showPartesModal} onOpenChange={setShowPartesModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-primary" />
+              Partes não cadastradas
+            </DialogTitle>
+            <DialogDescription>
+              As partes abaixo foram identificadas no DataJud mas não possuem cadastro na sua organização.
+              Você pode cadastrá-las agora ou pular — poderá fazer isso depois na edição do processo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
+            {pendingPartes.map((entry, idx) => (
+              <div
+                key={idx}
+                className={cn(
+                  'border rounded-lg p-4 space-y-2 transition-colors',
+                  entry.created ? 'border-green-500/40 bg-green-500/5' : 'border-border bg-card'
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{entry.parte.nome}</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {entry.parte.polo && (
+                        <Badge variant="outline" className="text-xs capitalize">{entry.parte.polo}</Badge>
+                      )}
+                      {entry.parte.tipo_participacao && (
+                        <Badge variant="outline" className="text-xs capitalize">{entry.parte.tipo_participacao}</Badge>
+                      )}
+                      {entry.parte.documento && (
+                        <Badge variant="secondary" className="text-xs font-mono">{entry.parte.documento}</Badge>
+                      )}
+                      {entry.parte.oab && (
+                        <Badge variant="secondary" className="text-xs">OAB: {entry.parte.oab}</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0">
+                    {entry.created ? (
+                      <Badge className="bg-green-600 text-white">
+                        <Check className="w-3 h-3 mr-1" />
+                        Cadastrado
+                      </Badge>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        id={`btn-criar-cliente-${idx}`}
+                        onClick={() => handleCriarCliente(idx)}
+                        disabled={entry.creating}
+                        className="text-xs"
+                      >
+                        {entry.creating ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <>
+                            <UserPlus className="w-3 h-3 mr-1" />
+                            Cadastrar
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {entry.error && (
+                  <p className="text-xs text-destructive">{entry.error}</p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              id="btn-fechar-modal-partes"
+              onClick={() => setShowPartesModal(false)}
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

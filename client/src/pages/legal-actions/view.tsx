@@ -14,8 +14,11 @@ import {
   CheckCircle2,
   XCircle,
   Edit,
+  Users,
+  History as HistoryIcon,
+  Tag,
 } from 'lucide-react';
-import { LegalActionService, LegalAction } from '@/services/legal-action.service';
+import { LegalActionService, LegalAction, DataJudAssunto } from '@/services/legal-action.service';
 import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 import { ClientService } from '@/services/client.service';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +28,23 @@ function getActionTypeLabel(action: LegalAction): string {
   if (action.action_type?.name) return action.action_type.name;
   if (action.action_type?.code) return formatActionType(action.action_type.code);
   return '—';
+}
+
+function parseAssuntos(assuntosJson?: string | null): DataJudAssunto[] {
+  if (!assuntosJson) return [];
+  try {
+    const parsed = JSON.parse(assuntosJson);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => {
+        if (typeof item === 'string') return { nome: item };
+        return { codigo: item.codigo, nome: item.nome };
+      });
+    }
+    if (typeof parsed === 'object' && parsed !== null) return [parsed];
+  } catch {
+    return [{ nome: assuntosJson }];
+  }
+  return [];
 }
 
 /**
@@ -181,7 +201,7 @@ export default function ProcessoViewPage() {
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle>Dados processuais</CardTitle>
-                <CardDescription>Tipo, status e tribunal</CardDescription>
+                <CardDescription>Tipo, status, tribunal e detalhes do DataJud</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-start gap-3">
@@ -200,31 +220,66 @@ export default function ProcessoViewPage() {
                     </Badge>
                   </div>
                 </div>
-                {action.court_name && (
+                <div className="flex items-start gap-3">
+                  <Building2 className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Tribunal / Fórum</p>
+                    <p className="text-base text-foreground">{action.court_name || '—'}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Building2 className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Órgão Julgador</p>
+                    <p className="text-base text-foreground">{action.orgao_julgador || '—'}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Building2 className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Comarca / Vara</p>
+                    <p className="text-base text-foreground">
+                      {[action.comarca, action.vara].filter(Boolean).join(' — ') || '—'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Scale className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Valor da causa</p>
+                    <p className="text-base font-semibold text-foreground">
+                      {action.valor_causa != null
+                        ? Number(action.valor_causa).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                        : '—'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <User className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Magistrado</p>
+                    <p className="text-base text-foreground">{action.magistrado || '—'}</p>
+                  </div>
+                </div>
+                {action.segredo_justica && (
                   <div className="flex items-start gap-3">
-                    <Building2 className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Tribunal</p>
-                      <p className="text-base text-foreground">{action.court_name}</p>
-                    </div>
+                    <Badge variant="destructive">Segredo de Justiça</Badge>
                   </div>
                 )}
                 <div className="flex items-start gap-3">
                   <Calendar className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Data de abertura</p>
+                    <p className="text-sm font-medium text-muted-foreground">Data de abertura / ajuizamento</p>
                     <p className="text-base text-foreground">{formatDate(action.filing_date)}</p>
                   </div>
                 </div>
-                {action.closing_date && (
-                  <div className="flex items-start gap-3">
-                    <Calendar className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Data de encerramento</p>
-                      <p className="text-base text-foreground">{formatDate(action.closing_date)}</p>
-                    </div>
+                <div className="flex items-start gap-3">
+                  <Calendar className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Data de encerramento</p>
+                    <p className="text-base text-foreground">{formatDate(action.closing_date)}</p>
                   </div>
-                )}
+                </div>
               </CardContent>
             </Card>
 
@@ -241,6 +296,101 @@ export default function ProcessoViewPage() {
                     <p className="text-base text-foreground">{clientName ?? '—'}</p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* ── Assuntos TPU ────────────────────────────────────────── */}
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Tag className="h-5 w-5 text-muted-foreground" />
+                  Assuntos do Processo (TPU)
+                </CardTitle>
+                <CardDescription>Matérias do direito classificadas pelo CNJ</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {parseAssuntos(action.assuntos_json).length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {parseAssuntos(action.assuntos_json).map((ass, i) => (
+                      <Badge key={i} variant="secondary" className="text-xs font-normal">
+                        {ass.codigo ? `[${ass.codigo}] ` : ''}{ass.nome || 'Assunto'}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">— NENHUM ASSUNTO REGISTRADO —</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* ── Partes do Processo ───────────────────────────────────── */}
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-muted-foreground" />
+                  Partes do Processo ({action.partes?.length ?? 0})
+                </CardTitle>
+                <CardDescription>Polos ativos, passivos e representantes</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {action.partes && action.partes.length > 0 ? (
+                  <div className="space-y-3">
+                    {action.partes.map((parte) => (
+                      <div key={parte.id} className="flex items-start justify-between p-3 rounded-lg border bg-card">
+                        <div>
+                          <p className="font-medium text-sm text-foreground">{parte.nome}</p>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {parte.polo && <Badge variant="outline" className="text-xs uppercase">{parte.polo}</Badge>}
+                            {parte.tipo_participacao && <Badge variant="secondary" className="text-xs capitalize">{parte.tipo_participacao}</Badge>}
+                            {parte.documento && <span className="text-xs font-mono text-muted-foreground">CPF/CNPJ: {parte.documento}</span>}
+                            {parte.oab && <span className="text-xs text-muted-foreground">OAB: {parte.oab}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-2 text-center border border-dashed rounded-md bg-muted/20">
+                    — NENHUMA PARTE REGISTRADA —
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* ── Histórico de Movimentações ────────────────────────────── */}
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <HistoryIcon className="h-5 w-5 text-muted-foreground" />
+                  Histórico de Movimentações ({action.movimentos?.length ?? 0})
+                </CardTitle>
+                <CardDescription>Andamento do processo extraído do DataJud</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {action.movimentos && action.movimentos.length > 0 ? (
+                  <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                    {action.movimentos.map((mov) => (
+                      <div key={mov.id} className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30">
+                        <HistoryIcon className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-medium text-foreground">{mov.nome}</p>
+                            <span className="text-xs font-mono text-muted-foreground shrink-0">
+                              {mov.data_hora ? new Date(mov.data_hora).toLocaleString('pt-BR') : '—'}
+                            </span>
+                          </div>
+                          {mov.codigo && (
+                            <span className="text-xs text-muted-foreground">Código TPU: {mov.codigo}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-2 text-center border border-dashed rounded-md bg-muted/20">
+                    — NENHUMA MOVIMENTAÇÃO REGISTRADA —
+                  </p>
+                )}
               </CardContent>
             </Card>
 
