@@ -51,38 +51,54 @@ export default function TopBar({ userName, userEmail }: TopBarProps) {
   }, [loadNotifications]);
 
   useEffect(() => {
-    const token = AuthService.getToken();
-    if (!token) return;
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let isDisposed = false;
 
-    const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-    const wsBaseUrl = apiBaseUrl.replace(/^http/, 'ws');
-    const ws = new WebSocket(`${wsBaseUrl}/api/v1/notifications/ws?token=${token}`);
+    const connect = () => {
+      const token = AuthService.getToken();
+      if (!token || isDisposed) return;
 
-    ws.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data) as { type?: string; notifications?: NotificationResponse[] };
-        if (payload.type === 'snapshot' && Array.isArray(payload.notifications)) {
-          setNotifications(payload.notifications);
-          return;
+      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const wsBaseUrl = apiBaseUrl.replace(/^http/, 'ws');
+      ws = new WebSocket(`${wsBaseUrl}/api/v1/notifications/ws?token=${token}`);
+
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data) as { type?: string; notifications?: NotificationResponse[] };
+          if (payload.type === 'snapshot' && Array.isArray(payload.notifications)) {
+            setNotifications(payload.notifications);
+            return;
+          }
+          if (payload.type === 'new' && Array.isArray(payload.notifications)) {
+            setNotifications((prev) => {
+              const existing = new Set(prev.map((item) => item.id));
+              const incoming = payload.notifications!.filter((item) => !existing.has(item.id));
+              return incoming.length > 0 ? [...incoming.reverse(), ...prev] : prev;
+            });
+          }
+        } catch {
+          // no-op
         }
-        if (payload.type === 'new' && Array.isArray(payload.notifications)) {
-          setNotifications((prev) => {
-            const existing = new Set(prev.map((item) => item.id));
-            const incoming = payload.notifications!.filter((item) => !existing.has(item.id));
-            return incoming.length > 0 ? [...incoming.reverse(), ...prev] : prev;
-          });
+      };
+
+      ws.onerror = () => {
+        loadNotifications();
+      };
+
+      ws.onclose = () => {
+        if (!isDisposed) {
+          reconnectTimer = setTimeout(connect, 5000);
         }
-      } catch {
-        // no-op
-      }
+      };
     };
 
-    ws.onerror = () => {
-      loadNotifications();
-    };
+    connect();
 
     return () => {
-      ws.close();
+      isDisposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (ws) ws.close();
     };
   }, [loadNotifications]);
 

@@ -152,7 +152,7 @@ export default function ClienteNovoPage() {
               <SelectField
                 id="client_type"
                 label="Tipo de Cliente"
-                value={formData.client_type}
+                value={formData.client_type || 'individual'}
                 onChange={(e) => handleChange('client_type', e.target.value)}
                 disabled={isLoading}
                 options={[
@@ -181,7 +181,7 @@ export default function ClienteNovoPage() {
               <SelectField
                 id="status"
                 label="Status"
-                value={formData.status}
+                value={formData.status || 'prospect'}
                 onChange={(e) => handleChange('status', e.target.value)}
                 disabled={isLoading}
                 options={[

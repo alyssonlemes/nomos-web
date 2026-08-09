@@ -53,7 +53,7 @@ export default function UsuariosViewPage() {
       setError('');
       const data = await UserService.getUserById(userId);
       setUser(data);
-      setSelectedRole(data.role);
+      setSelectedRole(data.role || '');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar usuário';
       setError(errorMessage);
@@ -224,7 +224,7 @@ export default function UsuariosViewPage() {
                         size="sm"
                         onClick={() => {
                           setIsEditingRole(false);
-                          setSelectedRole(user.role);
+                          setSelectedRole(user.role || '');
                         }}
                         className="h-8 w-8 p-0"
                       >
@@ -233,7 +233,7 @@ export default function UsuariosViewPage() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <Badge variant="default">{getRoleLabel(user.role)}</Badge>
+                      <Badge variant="default">{getRoleLabel((user.role || 'member') as UserRole)}</Badge>
                       {canUpdateRole && (
                         <Button
                           variant="ghost"

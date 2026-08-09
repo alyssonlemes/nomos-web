@@ -62,7 +62,7 @@ export default function UsuariosEditPage() {
       setUser(data);
       setFullName(data.full_name);
       setEmail(data.email);
-      setRole(data.role);
+      setRole(data.role || '');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar usuário';
       setError(errorMessage);
