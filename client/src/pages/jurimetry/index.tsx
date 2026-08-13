@@ -11,28 +11,194 @@ type ChatMessage = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  animate?: boolean;
 };
+
+interface TextSegment {
+  type: 'text' | 'bold' | 'italic';
+  content: string;
+  charCount: number;
+}
+
+interface TextLine {
+  segments: TextSegment[];
+}
+
+/** Utilitário para contar caracteres Unicode (pontos de código) */
+function getCharCount(str: string): number {
+  return Array.from(str).length;
+}
+
+/** Utilitário para fatiar caracteres Unicode sem quebrar pares substitutos */
+function sliceChars(str: string, length: number): string {
+  return Array.from(str).slice(0, length).join('');
+}
+
+/** Transforma markdown simples em AST estruturada por linhas e segmentos */
+function parseFormattedText(text: string): { lines: TextLine[]; totalLength: number } {
+  const rawLines = text.split('\n');
+  let totalLength = 0;
+
+  const lines: TextLine[] = rawLines.map((line, lineIdx) => {
+    const rawTokens = line.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+    const segments: TextSegment[] = [];
+
+    for (const token of rawTokens) {
+      if (!token) continue;
+      if (token.startsWith('**') && token.endsWith('**')) {
+        const content = token.slice(2, -2);
+        const charCount = getCharCount(content);
+        segments.push({ type: 'bold', content, charCount });
+        totalLength += charCount;
+      } else if (token.startsWith('*') && token.endsWith('*') && token.length > 2) {
+        const content = token.slice(1, -1);
+        const charCount = getCharCount(content);
+        segments.push({ type: 'italic', content, charCount });
+        totalLength += charCount;
+      } else {
+        const charCount = getCharCount(token);
+        segments.push({ type: 'text', content: token, charCount });
+        totalLength += charCount;
+      }
+    }
+
+    if (lineIdx < rawLines.length - 1) {
+      totalLength += 1;
+    }
+
+    return { segments };
+  });
+
+  return { lines, totalLength };
+}
+
+/** Renderiza a AST de acordo com a quantidade de caracteres visíveis */
+function renderFormattedAST(lines: TextLine[], visibleLength: number, isTyping: boolean) {
+  let charCounter = 0;
+
+  return (
+    <>
+      {lines.map((line, lineIdx) => {
+        if (charCounter >= visibleLength && visibleLength < Infinity) {
+          return null;
+        }
+
+        const lineElements: React.ReactNode[] = [];
+
+        for (let segIdx = 0; segIdx < line.segments.length; segIdx++) {
+          const seg = line.segments[segIdx];
+          const remainingChars = visibleLength - charCounter;
+
+          if (remainingChars <= 0) break;
+
+          const sliceLength = Math.min(seg.charCount, remainingChars);
+          const slicedContent = sliceChars(seg.content, sliceLength);
+          charCounter += sliceLength;
+
+          const key = `${lineIdx}-${segIdx}`;
+          if (seg.type === 'bold') {
+            lineElements.push(<strong key={key}>{slicedContent}</strong>);
+          } else if (seg.type === 'italic') {
+            lineElements.push(<em key={key}>{slicedContent}</em>);
+          } else {
+            lineElements.push(<span key={key}>{slicedContent}</span>);
+          }
+        }
+
+        const hasNewline = lineIdx < lines.length - 1;
+        let showNewline = false;
+        if (hasNewline) {
+          if (charCounter < visibleLength) {
+            charCounter += 1;
+            showNewline = true;
+          }
+        }
+
+        return (
+          <span key={lineIdx}>
+            {lineElements}
+            {showNewline && <br />}
+          </span>
+        );
+      })}
+
+      {isTyping && (
+        <span className="inline-block w-1.5 h-3.5 bg-primary/80 ml-1 align-middle animate-pulse rounded-sm" />
+      )}
+    </>
+  );
+}
+
+/** Componente de efeito máquina de escrever para a mensagem do assistente */
+function TypewriterMessage({
+  content,
+  animate = true,
+  onType,
+}: {
+  content: string;
+  animate?: boolean;
+  onType?: () => void;
+}) {
+  const { lines, totalLength } = parseFormattedText(content);
+  const [visibleLength, setVisibleLength] = useState(animate ? 0 : totalLength);
+
+  useEffect(() => {
+    if (!animate) {
+      setVisibleLength(totalLength);
+      return;
+    }
+
+    setVisibleLength(0);
+
+    // Passo ajustado para finalizar a animação em ~1.5 a 2.5s
+    const step = Math.max(1, Math.ceil(totalLength / 120));
+    const intervalTime = 15;
+
+    const interval = setInterval(() => {
+      setVisibleLength((prev) => {
+        const next = prev + step;
+        if (next >= totalLength) {
+          clearInterval(interval);
+          return totalLength;
+        }
+        return next;
+      });
+      if (onType) onType();
+    }, intervalTime);
+
+    return () => clearInterval(interval);
+  }, [content, animate, totalLength]);
+
+  const isTyping = animate && visibleLength < totalLength;
+
+  return renderFormattedAST(lines, visibleLength, isTyping);
+}
 
 export default function Jurimetria() {
   const currentUser = UserService.getStoredUser();
-  const userInitial = currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U';
+  const userInitial = currentUser?.full_name ? currentUser.full_name.charAt(0).toUpperCase() : 'U';
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
       role: 'assistant',
       content:
-        'Olá! Sou o assistente de jurimetria da Nomos. Faça perguntas sobre processos, probabilidades, tempos médios ou tendências que eu te ajudo a analisar.',
+        'Olá! Sou o assistente de jurimetria da Nomos. Faça perguntas sobre processos, probabilidades, tempos médios ou tendências que eu te ajudo a analisar.\n\n💡 **Para analisar um processo**, basta me mandar o número no padrão CNJ e o tribunal (ex: *5001234-56.2023.8.21.0001 no TJRS*).',
+      animate: false,
     },
   ]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
+  const scrollToBottom = () => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
   }, [messages]);
 
   const handleSend = async () => {
@@ -49,8 +215,6 @@ export default function Jurimetria() {
     setIsSending(true);
 
     try {
-      // Montar histórico: todas as mensagens exceto a mensagem de boas-vindas (id='welcome')
-      // e exceto a mensagem atual (já adicionada acima)
       const historico: ChatHistoricoItem[] = messages
         .filter((m) => m.id !== 'welcome')
         .map((m) => ({ role: m.role, content: m.content }));
@@ -61,6 +225,7 @@ export default function Jurimetria() {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: resultado.resposta,
+        animate: true,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -72,6 +237,7 @@ export default function Jurimetria() {
           error instanceof Error
             ? `⚠️ ${error.message}`
             : '⚠️ Ocorreu um erro ao processar sua mensagem. Tente novamente.',
+        animate: true,
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -138,8 +304,6 @@ export default function Jurimetria() {
           </CardHeader>
 
           <CardContent className="flex flex-col flex-1 min-h-0 pt-4 gap-4">
-            {/* Área de mensagens: flex-1 + min-h-0 permite encolher dentro do flex pai */}
-            {/* sem min-h-0 o flex item nunca encolhe abaixo do tamanho do conteúdo */}
             <div
               ref={scrollRef}
               className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-2"
@@ -168,7 +332,15 @@ export default function Jurimetria() {
                         : 'bg-muted text-foreground border border-border rounded-bl-none'
                     )}
                   >
-                    {renderContent(message.content)}
+                    {message.role === 'assistant' ? (
+                      <TypewriterMessage
+                        content={message.content}
+                        animate={message.animate !== false}
+                        onType={scrollToBottom}
+                      />
+                    ) : (
+                      renderContent(message.content)
+                    )}
                   </div>
 
                   {/* Avatar do usuário */}

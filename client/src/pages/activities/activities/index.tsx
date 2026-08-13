@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -20,7 +17,7 @@ import {
   Settings,
 } from "lucide-react";
 import { toast } from "sonner";
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 import {
   ActivityService,
@@ -75,12 +72,14 @@ export default function ActivitiesPage() {
     "all"
   );
   const [draggedActivity, setDraggedActivity] = useState<Activity | null>(null);
+  const [dragOverColumnStatus, setDragOverColumnStatus] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const user = UserService.getStoredUser();
     if (!user?.organization_id) {
       setError("Nenhuma organização selecionada");
+      setIsLoading(false);
       return;
     }
 
@@ -89,13 +88,15 @@ export default function ActivitiesPage() {
         user.role?.toLowerCase() === "owner"
     );
     setOrgId(user.organization_id);
-    loadKanban(user.organization_id);
+    loadKanban(user.organization_id, true);
     loadColumns(user.organization_id);
   }, []);
 
-  const loadKanban = async (organizationId: number) => {
+  const loadKanban = async (organizationId: number, showSpinner = true) => {
     try {
-      setIsLoading(true);
+      if (showSpinner) {
+        setIsLoading(true);
+      }
       setError("");
       const data: ActivityKanbanResponse[] =
         await ActivityService.getActivityKanban(organizationId);
@@ -112,7 +113,9 @@ export default function ActivitiesPage() {
       setError(msg);
       toast.error(msg);
     } finally {
-      setIsLoading(false);
+      if (showSpinner) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -138,36 +141,105 @@ export default function ActivitiesPage() {
   };
 
   const handleDelete = async (activityId: number) => {
+    // Optimistic local deletion
+    const previousKanbanData = new Map(
+      Array.from(kanbanData.entries()).map(([k, v]) => [k, [...v]])
+    );
+
+    setKanbanData(prev => {
+      const next = new Map<string, Activity[]>();
+      prev.forEach((activities, status) => {
+        next.set(
+          status,
+          activities.filter(a => a.id !== activityId)
+        );
+      });
+      return next;
+    });
+
     try {
       await ActivityService.deleteActivity(activityId);
       toast.success("Atividade deletada");
-      if (orgId) await loadKanban(orgId);
+      if (orgId) await loadKanban(orgId, false);
     } catch (err) {
+      setKanbanData(previousKanbanData);
       const msg = err instanceof Error ? err.message : "Erro ao deletar";
       toast.error(msg);
     }
   };
 
-  const handleDragStart = (activity: Activity) => {
+  const handleDragStart = (e: React.DragEvent, activity: Activity) => {
     setDraggedActivity(activity);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", activity.id.toString());
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragEnd = () => {
+    setDraggedActivity(null);
+    setDragOverColumnStatus(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, status: string) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverColumnStatus !== status) {
+      setDragOverColumnStatus(status);
+    }
   };
 
-  const handleDropOnColumn = async (status: string) => {
+  const handleDragLeave = (e: React.DragEvent, status: string) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    if (dragOverColumnStatus === status) {
+      setDragOverColumnStatus(null);
+    }
+  };
+
+  const handleDropOnColumn = async (targetStatus: string) => {
+    setDragOverColumnStatus(null);
     if (!draggedActivity) return;
 
+    const sourceStatus = draggedActivity.status;
+    const activityToMove = { ...draggedActivity, status: targetStatus };
+    setDraggedActivity(null);
+
+    if (sourceStatus === targetStatus) return;
+
+    // Snapshot current state for rollback if network fails
+    const previousKanbanData = new Map(
+      Array.from(kanbanData.entries()).map(([k, v]) => [k, [...v]])
+    );
+
+    // Optimistic UI update
+    setKanbanData(prev => {
+      const next = new Map<string, Activity[]>();
+      prev.forEach((activities, status) => {
+        if (status === sourceStatus) {
+          next.set(
+            status,
+            activities.filter(a => a.id !== activityToMove.id)
+          );
+        } else if (status === targetStatus) {
+          next.set(status, [...activities, activityToMove]);
+        } else {
+          next.set(status, [...activities]);
+        }
+      });
+      if (!next.has(targetStatus)) {
+        next.set(targetStatus, [activityToMove]);
+      }
+      return next;
+    });
+
     try {
-      await ActivityService.moveActivity(draggedActivity.id, status);
+      await ActivityService.moveActivity(activityToMove.id, targetStatus);
       toast.success("Atividade movida");
-      if (orgId) await loadKanban(orgId);
+      // Refresh silently in background to keep data in sync
+      if (orgId) await loadKanban(orgId, false);
     } catch (err) {
+      // Rollback on error
+      setKanbanData(previousKanbanData);
       const msg = err instanceof Error ? err.message : "Erro ao mover atividade";
       toast.error(msg);
-    } finally {
-      setDraggedActivity(null);
     }
   };
 
@@ -254,10 +326,12 @@ export default function ActivitiesPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {columns.map(column => {
               const activities = filteredKanban.get(column.status) || [];
+              const isDragOver = dragOverColumnStatus === column.status;
+
               return (
                 <div key={column.status} className="flex flex-col">
                   <div
-                    className="rounded-t-lg p-4 border border-gray-200 flex items-center justify-between"
+                    className="rounded-t-lg p-4 border border-gray-200 flex items-center justify-between transition-colors"
                     style={{ backgroundColor: column.color }}
                   >
                     <div>
@@ -271,25 +345,51 @@ export default function ActivitiesPage() {
                   </div>
 
                   <div
-                    className="bg-white border border-t-0 border-gray-200 rounded-b-lg p-4 flex-1 min-h-96 space-y-3 overflow-y-auto"
-                    onDragOver={handleDragOver}
-                    onDrop={() => handleDropOnColumn(column.status)}
+                    className={`bg-white border border-t-0 border-gray-200 rounded-b-lg p-4 flex-1 min-h-96 space-y-3 overflow-y-auto transition-all duration-200 ${
+                      isDragOver
+                        ? "bg-gray-50/60"
+                        : ""
+                    }`}
+                    onDragOver={e => handleDragOver(e, column.status)}
+                    onDragLeave={e => handleDragLeave(e, column.status)}
+                    onDrop={e => {
+                      e.preventDefault();
+                      handleDropOnColumn(column.status);
+                    }}
                   >
-                    {activities.length === 0 ? (
-                      <p className="text-center text-muted-foreground py-8">
-                        Nenhuma atividade
-                      </p>
-                    ) : (
-                      activities.map(activity => (
-                        <ActivityCard
-                          key={activity.id}
-                          activity={activity}
-                          onEdit={() => setLocation(`/activities/${activity.id}`)}
-                          onDelete={() => handleDelete(activity.id)}
-                          onDragStart={() => handleDragStart(activity)}
-                        />
-                      ))
-                    )}
+                    <AnimatePresence mode="popLayout">
+                      {activities.length === 0 ? (
+                        <motion.div
+                          key="empty"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="flex items-center justify-center h-32 border-2 border-dashed border-gray-200 rounded-lg text-muted-foreground text-sm"
+                        >
+                          Nenhuma atividade
+                        </motion.div>
+                      ) : (
+                        activities.map(activity => (
+                          <motion.div
+                            key={activity.id}
+                            layout
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                          >
+                            <ActivityCard
+                              activity={activity}
+                              isDragging={draggedActivity?.id === activity.id}
+                              onEdit={() => setLocation(`/activities/${activity.id}`)}
+                              onDelete={() => handleDelete(activity.id)}
+                              onDragStart={e => handleDragStart(e, activity)}
+                              onDragEnd={handleDragEnd}
+                            />
+                          </motion.div>
+                        ))
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
               );
@@ -303,16 +403,20 @@ export default function ActivitiesPage() {
 
 interface ActivityCardProps {
   activity: Activity;
+  isDragging?: boolean;
   onEdit: () => void;
   onDelete: () => void;
-  onDragStart: () => void;
+  onDragStart: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
 }
 
 function ActivityCard({
   activity,
+  isDragging,
   onEdit,
   onDelete,
   onDragStart,
+  onDragEnd,
 }: ActivityCardProps) {
   const [showActions, setShowActions] = useState(false);
 
@@ -322,7 +426,10 @@ function ActivityCard({
     <Card
       draggable
       onDragStart={onDragStart}
-      className="cursor-move hover:shadow-lg transition-all bg-white border border-gray-200 hover:border-gray-300"
+      onDragEnd={onDragEnd}
+      className={`cursor-grab active:cursor-grabbing transition-all duration-150 bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md select-none ${
+        isDragging ? "opacity-40" : ""
+      }`}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
@@ -411,3 +518,4 @@ function ActivityCard({
     </Card>
   );
 }
+
