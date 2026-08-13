@@ -22,7 +22,7 @@ export interface JurimetriaChatResponse {
   tempo_estimado_restante_dias?: number;
 }
 
-export class JurimétriaService {
+export class JurimetriaService {
   static async chat(
     mensagem: string,
     historico: ChatHistoricoItem[] = [],
@@ -49,6 +49,4 @@ export class JurimétriaService {
     return response.json() as Promise<JurimetriaChatResponse>;
   }
 }
-
-export const JurimetriaService = JurimétriaService;
 

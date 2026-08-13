@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Loader2, Send, Sparkles } from 'lucide-react';
-import type { ChatHistoricoItem } from '@/services/jurimetria.service';
+import { JurimetriaService, type ChatHistoricoItem } from '@/services/jurimetria.service';
 import { UserService } from '@/services/user.service';
 
 type ChatMessage = {
@@ -49,15 +49,13 @@ export default function Jurimetria() {
     setIsSending(true);
 
     try {
-      const { JurimétriaService } = await import('@/services/jurimetria.service');
-
       // Montar histórico: todas as mensagens exceto a mensagem de boas-vindas (id='welcome')
       // e exceto a mensagem atual (já adicionada acima)
       const historico: ChatHistoricoItem[] = messages
         .filter((m) => m.id !== 'welcome')
         .map((m) => ({ role: m.role, content: m.content }));
 
-      const resultado = await JurimétriaService.chat(userMessage.content, historico);
+      const resultado = await JurimetriaService.chat(userMessage.content, historico);
 
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
