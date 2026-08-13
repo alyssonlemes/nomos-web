@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Loader2, Send, Sparkles } from 'lucide-react';
-import { JurimetriaService, JurimetriaChatPrediction } from '@/services/jurimetria.service';
+import type { ChatHistoricoItem } from '@/services/jurimetria.service';
+import { UserService } from '@/services/user.service';
 
 type ChatMessage = {
   id: string;
@@ -13,6 +14,9 @@ type ChatMessage = {
 };
 
 export default function Jurimetria() {
+  const currentUser = UserService.getStoredUser();
+  const userInitial = currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U';
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -23,35 +27,13 @@ export default function Jurimetria() {
   ]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [isLoadingPrediction, setIsLoadingPrediction] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const loadingStartRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
-
-  const formatPrediction = (prediction: JurimetriaChatPrediction): string => {
-    const lines = [
-      `Estimativa total: ${prediction.tempo_total_estimado_dias} dias.`,
-    ];
-
-    if (prediction.tempo_decorrido_dias !== null && prediction.tempo_decorrido_dias !== undefined) {
-      lines.push(`Tempo decorrido: ${prediction.tempo_decorrido_dias} dias.`);
-    }
-
-    if (
-      prediction.tempo_estimado_restante_dias !== null &&
-      prediction.tempo_estimado_restante_dias !== undefined
-    ) {
-      lines.push(`Tempo restante estimado: ${prediction.tempo_estimado_restante_dias} dias.`);
-    }
-
-    lines.push(`Fonte: ${prediction.fonte_dados}.`);
-    return lines.join('\n');
-  };
 
   const handleSend = async () => {
     if (!input.trim() || isSending) return;
@@ -65,51 +47,35 @@ export default function Jurimetria() {
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsSending(true);
-    setIsLoadingPrediction(true);
-    loadingStartRef.current = Date.now();
 
     try {
-      const response = await JurimetriaService.chat({
-        message: userMessage.content,
-      });
+      const { JurimétriaService } = await import('@/services/jurimetria.service');
 
-      const predictionText = response.prediction
-        ? `\n\n${formatPrediction(response.prediction)}`
-        : '';
+      // Montar histórico: todas as mensagens exceto a mensagem de boas-vindas (id='welcome')
+      // e exceto a mensagem atual (já adicionada acima)
+      const historico: ChatHistoricoItem[] = messages
+        .filter((m) => m.id !== 'welcome')
+        .map((m) => ({ role: m.role, content: m.content }));
+
+      const resultado = await JurimétriaService.chat(userMessage.content, historico);
 
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: `${response.message}${predictionText}`,
+        content: resultado.resposta,
       };
 
-      const elapsedMs = loadingStartRef.current ? Date.now() - loadingStartRef.current : 0;
-      const remainingMs = 1500 - elapsedMs;
-
-      if (remainingMs > 0) {
-        await new Promise((resolve) => setTimeout(resolve, remainingMs));
-      }
-
-      setIsLoadingPrediction(false);
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao consultar jurimetria.';
-      const elapsedMs = loadingStartRef.current ? Date.now() - loadingStartRef.current : 0;
-      const remainingMs = 300 - elapsedMs;
-
-      if (remainingMs > 0) {
-        await new Promise((resolve) => setTimeout(resolve, remainingMs));
-      }
-
-      setIsLoadingPrediction(false);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `assistant-${Date.now()}`,
-          role: 'assistant',
-          content: message,
-        },
-      ]);
+      const errorMessage: ChatMessage = {
+        id: `assistant-error-${Date.now()}`,
+        role: 'assistant',
+        content:
+          error instanceof Error
+            ? `⚠️ ${error.message}`
+            : '⚠️ Ocorreu um erro ao processar sua mensagem. Tente novamente.',
+      };
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsSending(false);
     }
@@ -122,10 +88,35 @@ export default function Jurimetria() {
     }
   };
 
+  /** Tokeniza uma linha em spans com negrito e itálico */
+  const renderInline = (text: string, baseKey: string) => {
+    const tokens = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+    return tokens.map((token, i) => {
+      if (token.startsWith('**') && token.endsWith('**')) {
+        return <strong key={`${baseKey}-b${i}`}>{token.slice(2, -2)}</strong>;
+      }
+      if (token.startsWith('*') && token.endsWith('*') && token.length > 2) {
+        return <em key={`${baseKey}-i${i}`}>{token.slice(1, -1)}</em>;
+      }
+      return <span key={`${baseKey}-t${i}`}>{token}</span>;
+    });
+  };
+
+  /** Renderiza texto com suporte a **negrito**, *itálico* e quebras de linha */
+  const renderContent = (content: string) => {
+    const lines = content.split('\n');
+    return lines.map((line, lineIdx) => (
+      <span key={lineIdx}>
+        {renderInline(line, String(lineIdx))}
+        {lineIdx < lines.length - 1 && <br />}
+      </span>
+    ));
+  };
+
   return (
-    <div className="p-6 h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col p-6">
       <div className="max-w-5xl mx-auto flex flex-col gap-4 w-full flex-1 min-h-0">
-        <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="flex items-center justify-between gap-3 mb-2 shrink-0">
           <div>
             <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
               <Sparkles className="h-6 w-6 text-primary" />
@@ -138,7 +129,7 @@ export default function Jurimetria() {
         </div>
 
         <Card className="flex flex-col flex-1 min-h-0 bg-background/60 backdrop-blur border-border/60">
-          <CardHeader className="pb-3 border-b border-border/60">
+          <CardHeader className="pb-3 border-b border-border/60 shrink-0">
             <CardTitle className="text-base font-semibold text-muted-foreground flex items-center gap-2">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -149,43 +140,64 @@ export default function Jurimetria() {
           </CardHeader>
 
           <CardContent className="flex flex-col flex-1 min-h-0 pt-4 gap-4">
-            <div ref={scrollRef} className="flex-1 min-h-0 pr-2 overflow-y-scroll">
-              <div className="flex flex-col gap-4 pb-4">
-                {messages.map((message) => (
+            {/* Área de mensagens: flex-1 + min-h-0 permite encolher dentro do flex pai */}
+            {/* sem min-h-0 o flex item nunca encolhe abaixo do tamanho do conteúdo */}
+            <div
+              ref={scrollRef}
+              className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-2"
+              style={{ scrollbarGutter: 'stable' }}
+            >
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={cn('shrink-0 flex w-full items-end gap-2', {
+                    'justify-end': message.role === 'user',
+                    'justify-start': message.role === 'assistant',
+                  })}
+                >
+                  {/* Avatar do assistente */}
+                  {message.role === 'assistant' && (
+                    <div className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-primary text-primary-foreground text-xs font-bold mb-0.5 select-none">
+                      N
+                    </div>
+                  )}
+
                   <div
-                    key={message.id}
-                    className={cn('flex w-full', {
-                      'justify-end': message.role === 'user',
-                      'justify-start': message.role === 'assistant',
-                    })}
+                    className={cn(
+                      'max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed',
+                      message.role === 'user'
+                        ? 'bg-primary text-primary-foreground rounded-br-none'
+                        : 'bg-muted text-foreground border border-border rounded-bl-none'
+                    )}
                   >
-                    <div
-                      className={cn(
-                        'max-w-[80%] rounded-2xl px-4 py-3 text-sm shadow-sm border',
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground border-primary/80 rounded-br-sm'
-                          : 'bg-muted/70 text-foreground border-border/70 rounded-bl-sm'
-                      )}
-                    >
-                      {message.content}
-                    </div>
+                    {renderContent(message.content)}
                   </div>
-                ))}
-                {isLoadingPrediction && (
-                  <div className="flex w-full justify-start">
-                    <div className="max-w-[80%] rounded-2xl px-4 py-3 text-sm shadow-sm border bg-muted/70 text-foreground border-border/70 rounded-bl-sm">
-                      <span className="inline-flex items-center gap-2" aria-live="polite" role="status">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Gerando estimativa...
-                      </span>
+
+                  {/* Avatar do usuário */}
+                  {message.role === 'user' && (
+                    <div className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-muted border border-border text-xs font-bold mb-0.5 select-none text-foreground">
+                      {userInitial}
                     </div>
+                  )}
+                </div>
+              ))}
+
+              {isSending && (
+                <div className="shrink-0 flex justify-start items-end gap-2">
+                  <div className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-primary text-primary-foreground text-xs font-bold mb-0.5 select-none">
+                    N
                   </div>
-                )}
-              </div>
+                  <div className="bg-muted border border-border rounded-2xl rounded-bl-none px-4 py-3 text-sm flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Analisando...
+                  </div>
+                </div>
+              )}
             </div>
 
+            {/* Input fixo na parte inferior */}
             <form
-              className="mt-2 flex items-center gap-2 rounded-2xl border border-border/70 bg-background/80 px-3 py-2 shadow-sm"
+              className="shrink-0 flex items-center gap-2 rounded-2xl border border-border/70 bg-background/80 px-3 py-2 shadow-sm"
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSend();
@@ -195,7 +207,7 @@ export default function Jurimetria() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Exemplo: tribunal=tjsp; data_ajuizamento=2023-01-10; area_juridica_principal=Criminal; classe_processual=Procedimento Comum"
+                placeholder="Digite sua dúvida ou informe um processo ex: 5001234-56.2023.8.21.0001 no TJRS"
                 className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
               />
               <Button

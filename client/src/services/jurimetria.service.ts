@@ -2,52 +2,53 @@ import { AuthService } from './auth.service';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-export interface JurimetriaChatContext {
-  tribunal?: string;
-  classe_processual?: string;
-  area_juridica_principal?: string;
-  data_ajuizamento?: string;
+export interface ChatHistoricoItem {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 export interface JurimetriaChatRequest {
-  message: string;
-  context?: JurimetriaChatContext;
-}
-
-export interface JurimetriaChatPrediction {
-  tribunal: string;
-  classe_processual?: string;
-  area_juridica_principal?: string;
-  data_ajuizamento: string;
-  tempo_total_estimado_dias: number;
-  tempo_decorrido_dias?: number | null;
-  tempo_estimado_restante_dias?: number | null;
-  fonte_dados: string;
+  mensagem: string;
+  historico: ChatHistoricoItem[];
 }
 
 export interface JurimetriaChatResponse {
-  message: string;
-  prediction?: JurimetriaChatPrediction;
-  missing_fields?: string[];
-  extracted_fields?: JurimetriaChatContext;
+  resposta: string;
+  tipo: 'texto' | 'predicao' | 'estatistica' | 'ajuda';
+  numero_processo?: string;
+  tribunal?: string;
+  tempo_total_estimado_dias?: number;
+  tempo_decorrido_dias?: number;
+  tempo_estimado_restante_dias?: number;
 }
 
-export class JurimetriaService {
-  static async chat(payload: JurimetriaChatRequest): Promise<JurimetriaChatResponse> {
+export class JurimétriaService {
+  static async chat(
+    mensagem: string,
+    historico: ChatHistoricoItem[] = [],
+  ): Promise<JurimetriaChatResponse> {
     const response = await AuthService.authenticatedFetch(
       `${API_BASE_URL}/api/v1/jurimetria/chat`,
       {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ mensagem, historico } satisfies JurimetriaChatRequest),
       }
     );
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      const message = error.detail ?? error.message ?? 'Erro ao consultar jurimetria';
-      throw new Error(typeof message === 'string' ? message : JSON.stringify(message));
+      let detalhe = 'Erro ao processar sua mensagem.';
+      try {
+        const erro = await response.json();
+        if (erro?.detail) detalhe = String(erro.detail);
+      } catch {
+        // fallback para mensagem genérica
+      }
+      throw new Error(detalhe);
     }
 
-    return response.json();
+    return response.json() as Promise<JurimetriaChatResponse>;
   }
 }
+
+export const JurimetriaService = JurimétriaService;
+
