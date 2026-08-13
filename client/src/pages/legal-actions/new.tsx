@@ -443,6 +443,12 @@ export default function ProcessoNovoPage() {
                       setDatajudError('');
                       setDatajudWarning('');
                     }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleConsultarDataJud();
+                      }
+                    }}
                     disabled={isLoading || isConsulting}
                     required
                     minLength={3}
