@@ -40,6 +40,8 @@ import { ClientService, Client, CreateClientData } from '@/services/client.servi
 import { UserService, UserResponse } from '@/services/user.service';
 import { SelectField } from '../../components/ui/select-field';
 import { cn } from '@/lib/utils';
+import { MovementsForm } from '@/components/MovementsForm';
+import { ProcessoMovimentoCreate } from '@/services/legal-action.service';
 
 const CLIENT_PAGE_SIZE = 100;
 const USER_PAGE_SIZE = 200;
@@ -82,6 +84,7 @@ export default function ProcessoNovoPage() {
   // Modal de confirmação para partes não cadastradas
   const [showPartesModal, setShowPartesModal] = useState(false);
   const [pendingPartes, setPendingPartes] = useState<PendingClientCreation[]>([]);
+  const [movimentos, setMovimentos] = useState<ProcessoMovimentoCreate[]>([]);
 
   const [form, setForm] = useState({
     number: '',
@@ -158,6 +161,15 @@ export default function ProcessoNovoPage() {
           orgao_julgador: prev.orgao_julgador || dados.orgao_julgador || '',
           valor_causa: prev.valor_causa || (dados.valor_causa ? String(dados.valor_causa) : ''),
         }));
+
+        if (dados.movimentos) {
+          setMovimentos(dados.movimentos.map(m => ({
+            codigo: m.codigo,
+            nome: m.nome,
+            data_hora: m.data_hora,
+            complemento_json: m.complemento ? JSON.stringify(m.complemento) : null
+          })));
+        }
       }
 
       // Partes já cadastradas → pre-selecionar o primeiro cliente encontrado (polo ativo)
@@ -340,6 +352,28 @@ export default function ProcessoNovoPage() {
       const actionTypeId = Number(form.action_type_id);
       if (!actionTypeId || Number.isNaN(actionTypeId)) throw new Error('Selecione o tipo de ação');
 
+      let partesPayload: any[] = [];
+      if (datajudResult?.partes_encontradas) {
+         partesPayload = [...partesPayload, ...datajudResult.partes_encontradas.map(p => ({
+            nome: p.nome,
+            documento: p.documento,
+            polo: p.polo,
+            tipo_participacao: p.tipo_participacao,
+            oab: p.oab,
+            client_id: p.client_id
+         }))];
+      }
+      pendingPartes.forEach(p => {
+         partesPayload.push({
+            nome: p.parte.nome,
+            documento: p.parte.documento,
+            polo: p.parte.polo,
+            tipo_participacao: p.parte.tipo_participacao,
+            oab: p.parte.oab,
+            ...(p.created && p.createdClientId ? { client_id: p.createdClientId } : {})
+         });
+      });
+
       const payload: Parameters<typeof LegalActionService.createLegalAction>[0] = {
         number: form.number,
         title: form.title,
@@ -368,6 +402,8 @@ export default function ProcessoNovoPage() {
           data_distribuicao: datajudResult.dados.data_distribuicao ?? undefined,
           segredo_justica: datajudResult.dados.segredo_justica,
         }),
+        ...(partesPayload.length > 0 && { partes: partesPayload }),
+        ...(movimentos.length > 0 && { movimentos }),
       };
 
       await LegalActionService.createLegalAction(payload);
@@ -808,42 +844,28 @@ export default function ProcessoNovoPage() {
             </CardContent>
           </Card>
 
-          {/* ── Card 3: Movimentações do Processo (Sempre visível) ──────────── */}
+          {/* ── Card 3: Movements (Always visible) ──────────── */}
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <HistoryIcon className="w-4 h-4 text-primary" />
-                Movimentações do Processo
-                {datajudResult?.dados?.movimentos && (
+                Movements
+                {movimentos.length > 0 && (
                   <Badge variant="secondary" className="ml-1 font-mono">
-                    {datajudResult.dados.movimentos.length}
+                    {movimentos.length}
                   </Badge>
                 )}
               </CardTitle>
               <CardDescription>
-                Andamentos históricos do processo (sincronizados via DataJud ou cadastrados no sistema)
+                Historical movements (synchronized via DataJud or added manually)
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {datajudResult?.dados?.movimentos && datajudResult.dados.movimentos.length > 0 ? (
-                <div className="max-h-64 overflow-y-auto space-y-2 pr-1 text-xs">
-                  {datajudResult.dados.movimentos.map((mov, i) => (
-                    <div key={i} className="flex items-start justify-between gap-3 bg-muted/40 p-2.5 rounded border border-border/50">
-                      <div>
-                        <p className="font-medium text-foreground">{mov.nome}</p>
-                        {mov.codigo && <span className="text-[11px] text-muted-foreground">Código TPU: {mov.codigo}</span>}
-                      </div>
-                      <span className="text-muted-foreground shrink-0 font-mono text-[11px]">
-                        {mov.data_hora ? new Date(mov.data_hora).toLocaleString('pt-BR') : '—'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-xs text-muted-foreground py-4 text-center border border-dashed rounded-md bg-muted/20">
-                  Nenhuma movimentação importada ainda. Ao consultar o DataJud pelo número CNJ acima, os andamentos do processo serão carregados e salvos automaticamente aqui.
-                </div>
-              )}
+              <MovementsForm 
+                movements={movimentos}
+                onChange={setMovimentos}
+                disabled={isLoading}
+              />
             </CardContent>
           </Card>
 

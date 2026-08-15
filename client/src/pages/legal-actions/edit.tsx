@@ -9,12 +9,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Loader2, ArrowLeft, ChevronsUpDown, Check, RefreshCw, Database } from 'lucide-react';
-import { LegalActionService, LegalAction, LegalStatus, LegalActionTypeEntity } from '@/services/legal-action.service';
+import { LegalActionService, LegalAction, LegalStatus, LegalActionTypeEntity, ProcessoMovimentoCreate } from '@/services/legal-action.service';
 import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 import { ClientService, Client } from '@/services/client.service';
 import { UserService, UserResponse } from '@/services/user.service';
 import { SelectField } from '@/components/ui/select-field';
 import { cn } from '@/lib/utils';
+import { MovementsForm } from '@/components/MovementsForm';
 
 const CLIENT_PAGE_SIZE = 100;
 const USER_PAGE_SIZE = 200;
@@ -57,6 +58,8 @@ export default function ProcessoEditPage() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<SelectableUser[]>([]);
+  
+  const [movimentos, setMovimentos] = useState<ProcessoMovimentoCreate[]>([]);
 
   const [isConsultingDatajud, setIsConsultingDatajud] = useState(false);
   const [datajudSyncMsg, setDatajudSyncMsg] = useState('');
@@ -88,7 +91,6 @@ export default function ProcessoEditPage() {
       const data = await LegalActionService.getLegalActionById(id);
       setAction(data);
 
-      // A API pode retornar legal_status como string (código) ou como objeto.
       const rawLegalStatus: any = (data as any).legal_status;
       const legalStatusCode: LegalStatus =
         (typeof rawLegalStatus === 'string'
@@ -107,7 +109,6 @@ export default function ProcessoEditPage() {
         }
       }
 
-      // Preencher formulário com dados atuais
       setForm({
         title: data.title || '',
         description: data.description || '',
@@ -122,7 +123,15 @@ export default function ProcessoEditPage() {
         valor_causa: data.valor_causa != null ? String(data.valor_causa) : '',
       });
 
-      // A API retorna só client_id; buscar cliente para exibir o nome
+      if (data.movimentos) {
+        setMovimentos(data.movimentos.map(m => ({
+          codigo: m.codigo,
+          nome: m.nome,
+          data_hora: m.data_hora,
+          complemento_json: m.complemento_json
+        })));
+      }
+
       if (data.client_id) {
         try {
           const client = await ClientService.getClientById(data.client_id);
@@ -263,65 +272,30 @@ export default function ProcessoEditPage() {
     }
 
     try {
-      // Validações
       if (!form.title || form.title.length < 3) {
         throw new Error('Título deve ter no mínimo 3 caracteres');
       }
+      
+      const clientId = form.client_id ? parseInt(form.client_id, 10) : undefined;
+      const actionTypeId = form.action_type_id ? parseInt(form.action_type_id, 10) : undefined;
 
-      // Preparar dados para atualização (apenas campos permitidos)
-      const payload: any = {};
-
-      if (form.title !== action?.title) {
-        payload.title = form.title;
-      }
-      if (form.description !== (action?.description || '')) {
-        payload.description = form.description || null;
-      }
-      const formActionTypeId = form.action_type_id ? parseInt(form.action_type_id, 10) : undefined;
-      if (formActionTypeId !== undefined && formActionTypeId !== action?.action_type_id) {
-        payload.action_type_id = formActionTypeId;
-      }
-      if (form.legal_status !== action?.legal_status) {
-        payload.legal_status = form.legal_status;
-      }
-      if (form.court_name !== (action?.court_name || '')) {
-        payload.court_name = form.court_name || null;
-      }
-      if (form.filing_date !== (action?.filing_date ? action.filing_date.split('T')[0] : '')) {
-        payload.filing_date = form.filing_date || null;
-      }
-      if (form.closing_date !== (action?.closing_date ? action.closing_date.split('T')[0] : '')) {
-        payload.closing_date = form.closing_date || null;
-      }
-      const newClientId = form.client_id ? parseInt(form.client_id, 10) : undefined;
-      if (newClientId && newClientId !== action?.client_id) {
-        payload.client_id = newClientId;
-      }
-      if (form.orgao_julgador !== (action?.orgao_julgador || '')) {
-        payload.orgao_julgador = form.orgao_julgador || null;
-      }
-      if (form.valor_causa !== (action?.valor_causa != null ? String(action.valor_causa) : '')) {
-        payload.valor_causa = form.valor_causa ? Number(form.valor_causa) : null;
-      }
-      if (form.assunto) {
-        payload.assuntos_json = JSON.stringify([{ codigo: '', nome: form.assunto }]);
-      }
-
-      const currentAssignedIds = (action?.assigned_users ?? []).map((user) => user.id).sort((a, b) => a - b);
-      const nextAssignedIds = selectedUsers.map((user) => user.id).sort((a, b) => a - b);
-      const assignedChanged =
-        currentAssignedIds.length !== nextAssignedIds.length ||
-        currentAssignedIds.some((id, index) => id !== nextAssignedIds[index]);
-
-      if (assignedChanged) {
-        payload.user_ids = nextAssignedIds;
-      }
-
-      // Se nenhum campo foi alterado
-      if (Object.keys(payload).length === 0) {
-        setLocation('/legal-actions');
-        return;
-      }
+      const payload: Parameters<typeof LegalActionService.updateLegalAction>[1] = {
+        number: form.number,
+        title: form.title,
+        client_id: clientId,
+        action_type_id: actionTypeId,
+        user_ids: selectedUsers.map((u) => u.id),
+        description: form.description || undefined,
+        legal_status: form.legal_status as LegalStatus,
+        court_name: form.court_name || undefined,
+        filing_date: form.filing_date || undefined,
+        orgao_julgador: form.orgao_julgador || undefined,
+        valor_causa: form.valor_causa ? Number(form.valor_causa) : undefined,
+        assuntos_json: form.assunto
+          ? JSON.stringify([{ codigo: '', nome: form.assunto }])
+          : undefined,
+        movimentos: movimentos.length > 0 ? movimentos : undefined,
+      };
 
       await LegalActionService.updateLegalAction(actionId, payload);
       setLocation('/legal-actions');
@@ -720,39 +694,25 @@ export default function ProcessoEditPage() {
             </CardContent>
           </Card>
 
-          {/* ── Movimentações do Processo (Sempre visível) ──────────────────── */}
+          {/* ── Movements (Always visible) ──────────────────── */}
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="text-base">
-                Movimentações do Processo
-                {action?.movimentos && (
+                Movements
+                {movimentos.length > 0 && (
                   <Badge variant="secondary" className="ml-2 font-mono">
-                    {action.movimentos.length}
+                    {movimentos.length}
                   </Badge>
                 )}
               </CardTitle>
-              <CardDescription>Histórico de andamentos sincronizado com o DataJud ou cadastrado no sistema</CardDescription>
+              <CardDescription>Historical movements synchronized via DataJud or added manually</CardDescription>
             </CardHeader>
             <CardContent>
-              {action?.movimentos && action.movimentos.length > 0 ? (
-                <div className="max-h-60 overflow-y-auto space-y-2 pr-1 text-xs">
-                  {action.movimentos.map((mov) => (
-                    <div key={mov.id} className="flex items-start justify-between gap-3 bg-muted/40 p-2.5 rounded border border-border/50">
-                      <div>
-                        <p className="font-medium text-foreground">{mov.nome}</p>
-                        {mov.codigo && <span className="text-[11px] text-muted-foreground">Código TPU: {mov.codigo}</span>}
-                      </div>
-                      <span className="text-muted-foreground shrink-0 font-mono text-[11px]">
-                        {mov.data_hora ? new Date(mov.data_hora).toLocaleString('pt-BR') : '—'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-xs text-muted-foreground py-4 text-center border border-dashed rounded-md bg-muted/20">
-                  Nenhuma movimentação registrada. Clique em "Re-sincronizar DataJud" acima para buscar os andamentos no CNJ.
-                </div>
-              )}
+              <MovementsForm 
+                movements={movimentos}
+                onChange={setMovimentos}
+                disabled={isLoading}
+              />
             </CardContent>
           </Card>
 

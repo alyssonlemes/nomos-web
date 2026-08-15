@@ -149,6 +149,22 @@ export interface LegalAction {
   movimentos?: ProcessoMovimentoEntity[];
 }
 
+export interface ProcessoParteCreate {
+  polo?: string | null;
+  tipo_participacao?: string | null;
+  nome: string;
+  documento?: string | null;
+  oab?: string | null;
+  client_id?: number | null;
+}
+
+export interface ProcessoMovimentoCreate {
+  codigo?: string | null;
+  nome: string;
+  data_hora?: string | null;
+  complemento_json?: string | null;
+}
+
 export interface LegalActionCreate {
   number: string;
   title: string;
@@ -173,6 +189,8 @@ export interface LegalActionCreate {
   data_distribuicao?: string | null;
   valor_causa?: number | null;
   segredo_justica?: boolean;
+  partes?: ProcessoParteCreate[];
+  movimentos?: ProcessoMovimentoCreate[];
 }
 
 export interface LegalActionUpdate {
@@ -199,6 +217,8 @@ export interface LegalActionUpdate {
   data_distribuicao?: string | null;
   valor_causa?: number | null;
   segredo_justica?: boolean;
+  partes?: ProcessoParteCreate[];
+  movimentos?: ProcessoMovimentoCreate[];
 }
 
 // Resposta crua da API (conforme doc)
