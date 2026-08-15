@@ -8,7 +8,6 @@ import { TokenExpirationAlert } from "./components/TokenExpirationAlert";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Login from "./pages/auth/Login";
 import Dashboard from "./pages/dashboard";
-import Register from "./pages/auth/Register";
 import Profile from "./pages/profile/Profile";
 import ClientsList from "./pages/clients/index";
 import ClientsNew from "./pages/clients/new";
@@ -69,9 +68,8 @@ function ProtectedRoute({
 function Router() {
   return (
     <Switch>
-      {/* Rotas sem Layout (Login/Register) */}
+      {/* Rotas sem Layout (Login) */}
       <Route path={"/login"} component={Login} />
-      <Route path={"/register"} component={Register} />
       <Route
         path={"/onboarding-organization"}
         component={OnboardingOrganization}

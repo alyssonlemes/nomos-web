@@ -32,7 +32,7 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    
+
     try {
       if (rememberMe) {
         localStorage.setItem('remembered_email', email);
@@ -43,7 +43,7 @@ export default function Login() {
       await AuthService.login(email, password);
       // Obter dados do usuário autenticado
       const user = await UserService.getMe();
-      
+
       // Verificar se usuário tem organização
       if (!user.organization_id) {
         // Redirecionar para onboarding se não houver organização
@@ -166,17 +166,6 @@ export default function Login() {
               {isLoading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>
-
-          {/* Divisor */}
-          <div className="divider-horizontal" />
-
-          {/* Registro */}
-          <p className="text-center text-sm text-muted-foreground">
-            Não tem uma conta?{' '}
-            <a href="/register" className="text-foreground font-medium hover:underline">
-              Criar conta
-            </a>
-          </p>
         </div>
       </div>
     </div>
