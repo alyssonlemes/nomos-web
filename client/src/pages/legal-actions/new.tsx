@@ -42,6 +42,7 @@ import { SelectField } from '../../components/ui/select-field';
 import { cn } from '@/lib/utils';
 import { MovementsForm } from '@/components/MovementsForm';
 import { ProcessoMovimentoCreate } from '@/services/legal-action.service';
+import { toast } from 'sonner';
 
 const CLIENT_PAGE_SIZE = 100;
 const USER_PAGE_SIZE = 200;
@@ -59,7 +60,6 @@ interface PendingClientCreation {
 export default function ProcessoNovoPage() {
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const [actionTypes, setActionTypes] = useState<LegalActionTypeEntity[]>([]);
   const [statuses, setStatuses] = useState<LegalActionStatus[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -420,7 +420,7 @@ export default function ProcessoNovoPage() {
       setLocation('/legal-actions');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar processo';
-      setError(errorMessage);
+      toast.error(errorMessage);
       setIsLoading(false);
     }
   };
@@ -445,12 +445,6 @@ export default function ProcessoNovoPage() {
           <p className="text-muted-foreground">Preencha as informações para cadastrar uma nova ação jurídica</p>
         </div>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         <form onSubmit={handleSubmit}>
           {/* ── Card 1: Auto-Complete DataJud ──────────────────────────────── */}

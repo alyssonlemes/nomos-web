@@ -5,6 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff } from 'lucide-react';
 import { AuthService } from '@/services/auth.service';
 import { UserService } from '@/services/user.service';
+import { toast } from 'sonner';
 
 /**
  * Página de Login - Nomos
@@ -18,7 +19,6 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('remembered_email');
@@ -30,7 +30,6 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setIsLoading(true);
 
     try {
@@ -54,7 +53,7 @@ export default function Login() {
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login';
-      setError(errorMessage);
+      toast.error(errorMessage);
       setIsLoading(false);
     }
   };
@@ -88,12 +87,6 @@ export default function Login() {
             <p className="text-muted-foreground">Entre com suas credenciais para acessar o sistema</p>
           </div>
 
-          {/* Mensagem de Erro */}
-          {error && (
-            <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          )}
 
           {/* Formulário */}
           <form onSubmit={handleLogin} className="space-y-6">

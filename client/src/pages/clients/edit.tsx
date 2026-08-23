@@ -20,7 +20,6 @@ export default function ClienteEditPage() {
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingClient, setIsLoadingClient] = useState(true);
-  const [error, setError] = useState('');
   const [client, setClient] = useState<Client | null>(null);
 
   const [formData, setFormData] = useState<UpdateClientData>({
@@ -48,7 +47,6 @@ export default function ClienteEditPage() {
   const loadClient = async (id: number) => {
     try {
       setIsLoadingClient(true);
-      setError('');
       const data = await ClientService.getClientById(id);
       setClient(data);
       
@@ -68,7 +66,7 @@ export default function ClienteEditPage() {
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar cliente';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoadingClient(false);
     }
@@ -82,11 +80,10 @@ export default function ClienteEditPage() {
     e.preventDefault();
     
     if (!clientId) {
-      setError('ID do cliente inválido');
+      toast.error('ID do cliente inválido');
       return;
     }
 
-    setError('');
     setIsLoading(true);
 
     try {
@@ -144,7 +141,6 @@ export default function ClienteEditPage() {
       setLocation('/clientes');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar cliente';
-      setError(errorMessage);
       toast.error(errorMessage);
       setIsLoading(false);
     }
@@ -194,13 +190,6 @@ export default function ClienteEditPage() {
           </p>
         </div>
 
-        {/* Mensagens */}
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         {/* Formulário */}
         <form onSubmit={handleSubmit}>

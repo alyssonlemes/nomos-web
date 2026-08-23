@@ -33,7 +33,6 @@ export default function UsuariosEditPage() {
   const [user, setUser] = useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState('');
 
   // Form fields
   const [fullName, setFullName] = useState('');
@@ -47,7 +46,7 @@ export default function UsuariosEditPage() {
     if (userId) {
       loadUser();
     } else {
-      setError('ID de usuário inválido');
+      toast.error('ID de usuário inválido');
       setIsLoading(false);
     }
   }, [userId]);
@@ -57,7 +56,6 @@ export default function UsuariosEditPage() {
 
     try {
       setIsLoading(true);
-      setError('');
       const data = await UserService.getUserById(userId);
       setUser(data);
       setFullName(data.full_name);
@@ -65,7 +63,7 @@ export default function UsuariosEditPage() {
       setRole(data.role || '');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar usuário';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -96,7 +94,6 @@ export default function UsuariosEditPage() {
     }
 
     setIsSaving(true);
-    setError('');
 
     try {
       // Update basic user data
@@ -116,7 +113,6 @@ export default function UsuariosEditPage() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar usuário';
       toast.error(errorMessage);
-      setError(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -146,12 +142,6 @@ export default function UsuariosEditPage() {
           </p>
         </div>
 
-        {/* Mensagens de Erro */}
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         {/* Loading State */}
         {isLoading && (

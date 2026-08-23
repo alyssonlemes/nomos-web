@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft, Loader2, FileText, Edit } from 'lucide-react';
 import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
+import { toast } from 'sonner';
 
 export default function LegalActionStatusViewPage() {
   const [, setLocation] = useLocation();
@@ -13,13 +14,12 @@ export default function LegalActionStatusViewPage() {
 
   const [status, setStatus] = useState<LegalActionStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     if (statusId) {
       loadStatus();
     } else {
-      setError('ID do status inválido');
+      toast.error('ID do status inválido');
       setIsLoading(false);
     }
   }, [statusId]);
@@ -28,12 +28,11 @@ export default function LegalActionStatusViewPage() {
     if (!statusId) return;
     try {
       setIsLoading(true);
-      setError('');
       const data = await LegalActionStatusService.getLegalActionStatusById(statusId);
       setStatus(data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar status de ação';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -59,11 +58,6 @@ export default function LegalActionStatusViewPage() {
           </p>
         </div>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         {isLoading && (
           <div className="flex justify-center py-12">

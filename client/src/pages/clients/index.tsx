@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2, Pencil, Trash2, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ClientService, Client } from '@/services/client.service';
 import { canAccess, getCurrentRole } from '@/lib/rbac';
+import { toast } from 'sonner';
 
 /**
  * Página de Clientes - Nomos
@@ -24,8 +25,6 @@ export default function ClientesPage() {
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   
   const ITEMS_PER_PAGE = 10;
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
@@ -37,14 +36,13 @@ export default function ClientesPage() {
   const loadClients = async () => {
     try {
       setIsLoading(true);
-      setError('');
       const skip = (currentPage - 1) * ITEMS_PER_PAGE;
       const data = await ClientService.getClients(skip, ITEMS_PER_PAGE);
       setClients(data.clients);
       setTotal(data.total);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar clientes';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -52,14 +50,12 @@ export default function ClientesPage() {
 
   const handleDelete = async (id: number, name: string) => {
     try {
-      setError('');
-      setSuccess('');
       await ClientService.deleteClient(id);
-      setSuccess('Cliente excluído com sucesso!');
+      toast.success('Cliente excluído com sucesso!');
       loadClients();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao excluir cliente';
-      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -160,19 +156,6 @@ export default function ClientesPage() {
           </Alert>
         )}
 
-        {/* Mensagens */}
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {success && (
-          <Alert className="mb-6 bg-green-50 border-green-200">
-            <AlertDescription className="text-green-800">{success}</AlertDescription>
-          </Alert>
-        )}
 
         {/* Tabela de Clientes */}
         <Card>

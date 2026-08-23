@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertCircle, Plus, Mail, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from 'sonner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +35,6 @@ export default function OnboardingOrganization() {
   const [legalRepresentativeDocument, setLegalRepresentativeDocument] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingInvites, setIsLoadingInvites] = useState(true);
-  const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [invites, setInvites] = useState<Invitation[]>([]);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -94,14 +94,13 @@ export default function OnboardingOrganization() {
       }, 1500);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar organização';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleAcceptInvite = async (inviteId: number) => {
-    setError('');
     setSuccess('');
     setIsLoading(true);
 
@@ -115,7 +114,7 @@ export default function OnboardingOrganization() {
       }, 1500);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao aceitar convite';
-      setError(errorMessage);
+      toast.error(errorMessage);
       setIsLoading(false);
     }
   };
@@ -123,7 +122,6 @@ export default function OnboardingOrganization() {
   const handleRejectInvite = async () => {
     if (inviteToReject === null) return;
 
-    setError('');
     setSuccess('');
     setIsLoading(true);
     setRejectDialogOpen(false);
@@ -136,7 +134,7 @@ export default function OnboardingOrganization() {
       loadInvites();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao rejeitar convite';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -172,14 +170,6 @@ export default function OnboardingOrganization() {
             Para continuar, você precisa estar vinculado a uma organização
           </p>
         </div>
-
-        {/* Mensagens */}
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         {success && (
           <Alert className="mb-6 bg-green-50 border-green-200">

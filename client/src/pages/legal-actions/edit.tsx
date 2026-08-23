@@ -16,6 +16,7 @@ import { UserService, UserResponse } from '@/services/user.service';
 import { SelectField } from '@/components/ui/select-field';
 import { cn } from '@/lib/utils';
 import { MovementsForm } from '@/components/MovementsForm';
+import { toast } from 'sonner';
 
 const CLIENT_PAGE_SIZE = 100;
 const USER_PAGE_SIZE = 200;
@@ -262,11 +263,10 @@ export default function ProcessoEditPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setIsLoading(true);
 
     if (!actionId) {
-      setError('ID do processo inválido');
+      toast.error('ID do processo inválido');
       setIsLoading(false);
       return;
     }
@@ -301,7 +301,7 @@ export default function ProcessoEditPage() {
       setLocation('/legal-actions');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar processo';
-      setError(errorMessage);
+      toast.error(errorMessage);
       setIsLoading(false);
     }
   };
@@ -320,7 +320,7 @@ export default function ProcessoEditPage() {
         <div className="max-w-3xl mx-auto">
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>Processo não encontrado</AlertDescription>
+            <AlertDescription>{error || 'Processo não encontrado'}</AlertDescription>
           </Alert>
           <Button onClick={() => setLocation('/legal-actions')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -349,12 +349,6 @@ export default function ProcessoEditPage() {
           </p>
         </div>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         <form onSubmit={handleSubmit}>
 
@@ -698,14 +692,14 @@ export default function ProcessoEditPage() {
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="text-base">
-                Movements
+                Movimentos
                 {movimentos.length > 0 && (
                   <Badge variant="secondary" className="ml-2 font-mono">
                     {movimentos.length}
                   </Badge>
                 )}
               </CardTitle>
-              <CardDescription>Historical movements synchronized via DataJud or added manually</CardDescription>
+              <CardDescription>Movimentos históricos sincronizados via DataJud ou adicionados manualmente</CardDescription>
             </CardHeader>
             <CardContent>
               <MovementsForm 

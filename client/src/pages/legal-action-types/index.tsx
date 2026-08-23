@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { AlertCircle, Loader2, Eye, Plus, Edit, Trash2, Search } from 'lucide-react';
 import { LegalActionTypeService, LegalActionType } from '@/services/legal-action-type.service';
+import { toast } from 'sonner';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -15,8 +16,6 @@ export default function LegalActionTypesPage() {
   const [, setLocation] = useLocation();
   const [types, setTypes] = useState<LegalActionType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -30,7 +29,6 @@ export default function LegalActionTypesPage() {
   const loadTypes = async () => {
     try {
       setIsLoading(true);
-      setError('');
       const skip = (currentPage - 1) * ITEMS_PER_PAGE;
       const data = await LegalActionTypeService.getLegalActionTypes(
         skip,
@@ -41,7 +39,7 @@ export default function LegalActionTypesPage() {
       setTotal(data.total ?? 0);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar tipos de ação';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -53,14 +51,12 @@ export default function LegalActionTypesPage() {
 
   const handleDelete = async (id: number, type: LegalActionType) => {
     try {
-      setError('');
-      setSuccess('');
       await LegalActionTypeService.deleteLegalActionType(id);
-      setSuccess('Tipo de ação excluído com sucesso!');
+      toast.success('Tipo de ação excluído com sucesso!');
       loadTypes();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao excluir tipo de ação';
-      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -145,19 +141,6 @@ export default function LegalActionTypesPage() {
             Novo Tipo
           </Button>
         </div>
-
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {success && (
-          <Alert className="mb-6 bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800">
-            <AlertDescription className="text-green-800 dark:text-green-200">{success}</AlertDescription>
-          </Alert>
-        )}
 
         <Card>
           <CardHeader>

@@ -4,14 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
+import { toast } from 'sonner';
 import { LegalActionStatusService } from '@/services/legal-action-status.service';
 
 export default function LegalActionStatusNewPage() {
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const [form, setForm] = useState({
     name: '',
     code: '',
@@ -39,7 +38,7 @@ export default function LegalActionStatusNewPage() {
       setLocation('/legal-action-statuses');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar status de ação';
-      setError(errorMessage);
+      toast.error(errorMessage);
       setIsLoading(false);
     }
   };
@@ -62,12 +61,6 @@ export default function LegalActionStatusNewPage() {
           </p>
         </div>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         <form onSubmit={handleSubmit}>
           <Card className="mb-6">

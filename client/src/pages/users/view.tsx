@@ -31,7 +31,6 @@ export default function UsuariosViewPage() {
 
   const [user, setUser] = useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
   const [isEditingRole, setIsEditingRole] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
@@ -40,7 +39,7 @@ export default function UsuariosViewPage() {
     if (userId) {
       loadUser();
     } else {
-      setError('ID de usuário inválido');
+      toast.error('ID de usuário inválido');
       setIsLoading(false);
     }
   }, [userId]);
@@ -50,13 +49,12 @@ export default function UsuariosViewPage() {
 
     try {
       setIsLoading(true);
-      setError('');
       const data = await UserService.getUserById(userId);
       setUser(data);
       setSelectedRole(data.role || '');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar usuário';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -74,7 +72,6 @@ export default function UsuariosViewPage() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar role';
       toast.error(errorMessage);
-      setError(errorMessage);
     } finally {
       setIsUpdatingRole(false);
     }
@@ -101,12 +98,6 @@ export default function UsuariosViewPage() {
           </p>
         </div>
 
-        {/* Mensagens de Erro */}
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         {/* Loading State */}
         {isLoading && (

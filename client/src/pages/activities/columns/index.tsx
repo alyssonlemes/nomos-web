@@ -39,7 +39,6 @@ export default function ColumnsManagerPage() {
   const [, setLocation] = useLocation();
   const [columns, setColumns] = useState<ColumnData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
   const [orgId, setOrgId] = useState<number | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [editingColumn, setEditingColumn] = useState<ColumnData | null>(null);
@@ -48,7 +47,7 @@ export default function ColumnsManagerPage() {
   useEffect(() => {
     const user = UserService.getStoredUser();
     if (!user?.organization_id) {
-      setError("Nenhuma organização selecionada");
+      toast.error("Nenhuma organização selecionada");
       return;
     }
 
@@ -59,7 +58,6 @@ export default function ColumnsManagerPage() {
   const loadColumns = async (organizationId: number) => {
     try {
       setIsLoading(true);
-      setError("");
       const data = await ActivityService.listColumns(organizationId);
       const sorted = (data || []).sort(
         (a: ColumnData, b: ColumnData) =>
@@ -68,7 +66,6 @@ export default function ColumnsManagerPage() {
       setColumns(sorted);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro ao carregar colunas";
-      setError(msg);
       toast.error(msg);
       setColumns([]);
     } finally {
@@ -183,12 +180,6 @@ export default function ColumnsManagerPage() {
           </Button>
         </div>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">

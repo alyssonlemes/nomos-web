@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft, Loader2, FileText, Edit } from 'lucide-react';
 import { LegalActionTypeService, LegalActionType } from '@/services/legal-action-type.service';
+import { toast } from 'sonner';
 
 export default function LegalActionTypeViewPage() {
   const [, setLocation] = useLocation();
@@ -13,13 +14,12 @@ export default function LegalActionTypeViewPage() {
 
   const [type, setType] = useState<LegalActionType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     if (typeId) {
       loadType();
     } else {
-      setError('ID do tipo inválido');
+      toast.error('ID do tipo inválido');
       setIsLoading(false);
     }
   }, [typeId]);
@@ -28,12 +28,11 @@ export default function LegalActionTypeViewPage() {
     if (!typeId) return;
     try {
       setIsLoading(true);
-      setError('');
       const data = await LegalActionTypeService.getLegalActionTypeById(typeId);
       setType(data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar tipo de ação';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -59,11 +58,6 @@ export default function LegalActionTypeViewPage() {
           </p>
         </div>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         {isLoading && (
           <div className="flex justify-center py-12">

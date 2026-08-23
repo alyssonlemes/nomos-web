@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
+import { toast } from 'sonner';
 import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 
 export default function LegalActionStatusEditPage() {
@@ -13,7 +14,6 @@ export default function LegalActionStatusEditPage() {
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
-  const [error, setError] = useState('');
   const [status, setStatus] = useState<LegalActionStatus | null>(null);
   const [form, setForm] = useState({ name: '', code: '', description: '' });
 
@@ -26,7 +26,6 @@ export default function LegalActionStatusEditPage() {
   const loadStatus = async (id: number) => {
     try {
       setIsLoadingStatus(true);
-      setError('');
       const data = await LegalActionStatusService.getLegalActionStatusById(id);
       setStatus(data);
       setForm({
@@ -36,7 +35,7 @@ export default function LegalActionStatusEditPage() {
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar status de ação';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoadingStatus(false);
     }
@@ -52,7 +51,7 @@ export default function LegalActionStatusEditPage() {
     setIsLoading(true);
 
     if (!statusId || !status) {
-      setError('ID do status inválido');
+      toast.error('ID do status inválido');
       setIsLoading(false);
       return;
     }
@@ -69,7 +68,7 @@ export default function LegalActionStatusEditPage() {
       setLocation('/legal-action-statuses');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar status de ação';
-      setError(errorMessage);
+      toast.error(errorMessage);
       setIsLoading(false);
     }
   };
@@ -115,12 +114,6 @@ export default function LegalActionStatusEditPage() {
           <p className="text-muted-foreground">Atualize as informações do status {status.name}</p>
         </div>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         <form onSubmit={handleSubmit}>
           <Card className="mb-6">

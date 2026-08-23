@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { InvitationService } from '@/services/invitation.service';
 import { canAccess, getCurrentRole } from '@/lib/rbac';
 
@@ -21,23 +22,21 @@ export default function UsuariosNewPage() {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'admin' | 'member' | 'viewer' | 'assistant'>('member');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setSuccess('');
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      setError('Email e obrigatorio');
+      toast.error('Email e obrigatorio');
       return;
     }
 
     const emailRegex = /\S+@\S+\.\S+/;
     if (!emailRegex.test(trimmedEmail)) {
-      setError('Email invalido');
+      toast.error('Email invalido');
       return;
     }
 
@@ -48,7 +47,7 @@ export default function UsuariosNewPage() {
       setEmail('');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao enviar convite';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -88,13 +87,6 @@ export default function UsuariosNewPage() {
         </div>
 
         {/* Mensagens */}
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
         {success && (
           <Alert className="mb-6 bg-green-50 border-green-200">
             <AlertDescription className="text-green-800">{success}</AlertDescription>

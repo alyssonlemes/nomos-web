@@ -66,7 +66,6 @@ export default function ActivitiesPage() {
   );
   const [columns, setColumns] = useState<KanbanColumn[]>(DEFAULT_COLUMNS);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
   const [orgId, setOrgId] = useState<number | null>(null);
   const [activityType, setActivityType] = useState<"all" | "task" | "event">(
     "all"
@@ -78,7 +77,7 @@ export default function ActivitiesPage() {
   useEffect(() => {
     const user = UserService.getStoredUser();
     if (!user?.organization_id) {
-      setError("Nenhuma organização selecionada");
+      toast.error("Nenhuma organização selecionada");
       setIsLoading(false);
       return;
     }
@@ -97,7 +96,6 @@ export default function ActivitiesPage() {
       if (showSpinner) {
         setIsLoading(true);
       }
-      setError("");
       const data: ActivityKanbanResponse[] =
         await ActivityService.getActivityKanban(organizationId);
 
@@ -110,7 +108,6 @@ export default function ActivitiesPage() {
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Erro ao carregar atividades";
-      setError(msg);
       toast.error(msg);
     } finally {
       if (showSpinner) {
@@ -311,12 +308,6 @@ export default function ActivitiesPage() {
           </div>
         </div>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">

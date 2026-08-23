@@ -23,6 +23,7 @@ import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-ac
 import { ClientService } from '@/services/client.service';
 import { Badge } from '@/components/ui/badge';
 import { formatLegalStatus, formatActionType } from '@/utils/formats';
+import { toast } from 'sonner';
 
 function getActionTypeLabel(action: LegalAction): string {
   if (action.action_type?.name) return action.action_type.name;
@@ -70,13 +71,12 @@ export default function ProcessoViewPage() {
   const [clientName, setClientName] = useState<string | null>(null);
   const [statuses, setStatuses] = useState<LegalActionStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     if (actionId) {
       loadAction();
     } else {
-      setError('ID do processo inválido');
+      toast.error('ID do processo inválido');
       setIsLoading(false);
     }
   }, [actionId]);
@@ -99,7 +99,6 @@ export default function ProcessoViewPage() {
 
     try {
       setIsLoading(true);
-      setError('');
       const data = await LegalActionService.getLegalActionById(actionId);
       setAction(data);
 
@@ -115,7 +114,7 @@ export default function ProcessoViewPage() {
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar processo';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -141,11 +140,6 @@ export default function ProcessoViewPage() {
           </p>
         </div>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         {isLoading && (
           <div className="flex justify-center py-12">

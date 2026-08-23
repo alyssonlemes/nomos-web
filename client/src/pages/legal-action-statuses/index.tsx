@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { AlertCircle, Loader2, Eye, Plus, Edit, Trash2, Search } from 'lucide-react';
 import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
+import { toast } from 'sonner';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -15,8 +16,6 @@ export default function LegalActionStatusesPage() {
   const [, setLocation] = useLocation();
   const [statuses, setStatuses] = useState<LegalActionStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -30,7 +29,6 @@ export default function LegalActionStatusesPage() {
   const loadStatuses = async () => {
     try {
       setIsLoading(true);
-      setError('');
       const skip = (currentPage - 1) * ITEMS_PER_PAGE;
       const data = await LegalActionStatusService.getLegalActionStatuses(
         skip,
@@ -41,7 +39,7 @@ export default function LegalActionStatusesPage() {
       setTotal(data.total ?? 0);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar status de ações';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -53,14 +51,12 @@ export default function LegalActionStatusesPage() {
 
   const handleDelete = async (id: number, status: LegalActionStatus) => {
     try {
-      setError('');
-      setSuccess('');
       await LegalActionStatusService.deleteLegalActionStatus(id);
-      setSuccess('Status de ação excluído com sucesso!');
+      toast.success('Status de ação excluído com sucesso!');
       loadStatuses();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao excluir status de ação';
-      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -146,18 +142,6 @@ export default function LegalActionStatusesPage() {
           </Button>
         </div>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {success && (
-          <Alert className="mb-6 bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800">
-            <AlertDescription className="text-green-800 dark:text-green-200">{success}</AlertDescription>
-          </Alert>
-        )}
 
         <Card>
           <CardHeader>

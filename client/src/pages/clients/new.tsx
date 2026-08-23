@@ -3,9 +3,8 @@ import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SelectField } from '@/components/ui/select-field';
-import { AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { ClientService, CreateClientData } from '@/services/client.service';
 
@@ -18,7 +17,6 @@ import { ClientService, CreateClientData } from '@/services/client.service';
 export default function ClienteNovoPage() {
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
 
   const [formData, setFormData] = useState<CreateClientData>({
     name: '',
@@ -40,7 +38,6 @@ export default function ClienteNovoPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setIsLoading(true);
 
     try {
@@ -76,7 +73,6 @@ export default function ClienteNovoPage() {
       setLocation('/clientes');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar cliente';
-      setError(errorMessage);
       toast.error(errorMessage);
       setIsLoading(false);
     }
@@ -101,13 +97,6 @@ export default function ClienteNovoPage() {
           </p>
         </div>
 
-        {/* Mensagens */}
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         {/* Formulário */}
         <form onSubmit={handleSubmit}>

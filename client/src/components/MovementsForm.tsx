@@ -13,17 +13,28 @@ interface MovementsFormProps {
 export function MovementsForm({ movements, onChange, disabled }: MovementsFormProps) {
   const [newName, setNewName] = useState('');
   const [newCode, setNewCode] = useState('');
+  const [newDataHora, setNewDataHora] = useState('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   const handleSave = () => {
     if (!newName.trim()) return;
     
+    let dataHoraIso = new Date().toISOString();
+    if (newDataHora) {
+      try {
+        dataHoraIso = new Date(newDataHora).toISOString();
+      } catch (e) {
+        // use default
+      }
+    }
+
     if (editingIndex !== null) {
       const next = [...movements];
       next[editingIndex] = {
         ...next[editingIndex],
         nome: newName.trim(),
         codigo: newCode.trim() || undefined,
+        data_hora: dataHoraIso,
       };
       onChange(next);
       handleCancelEdit();
@@ -31,11 +42,12 @@ export function MovementsForm({ movements, onChange, disabled }: MovementsFormPr
       const newMov: ProcessoMovimentoCreate = {
         nome: newName.trim(),
         codigo: newCode.trim() || undefined,
-        data_hora: new Date().toISOString(),
+        data_hora: dataHoraIso,
       };
       onChange([...movements, newMov]);
       setNewName('');
       setNewCode('');
+      setNewDataHora('');
     }
   };
 
@@ -43,12 +55,24 @@ export function MovementsForm({ movements, onChange, disabled }: MovementsFormPr
     setEditingIndex(index);
     setNewName(movements[index].nome);
     setNewCode(movements[index].codigo || '');
+    
+    let dt = '';
+    if (movements[index].data_hora) {
+      try {
+        const date = new Date(movements[index].data_hora as string);
+        if (!isNaN(date.getTime())) {
+          dt = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        }
+      } catch (e) {}
+    }
+    setNewDataHora(dt);
   };
 
   const handleCancelEdit = () => {
     setEditingIndex(null);
     setNewName('');
     setNewCode('');
+    setNewDataHora('');
   };
 
   const handleRemove = (index: number) => {
@@ -70,11 +94,11 @@ export function MovementsForm({ movements, onChange, disabled }: MovementsFormPr
             <div key={i} className={`flex items-start justify-between gap-3 p-2.5 rounded border ${editingIndex === i ? 'bg-primary/5 border-primary/30' : 'bg-muted/40 border-border/50'}`}>
               <div className="flex-1">
                 <p className="font-medium text-foreground">{mov.nome}</p>
-                {mov.codigo && <span className="text-[11px] text-muted-foreground">TPU Code: {mov.codigo}</span>}
+                {mov.codigo && <span className="text-[11px] text-muted-foreground">Código TPU: {mov.codigo}</span>}
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-muted-foreground shrink-0 font-mono text-[11px] mr-2">
-                  {mov.data_hora ? new Date(mov.data_hora).toLocaleString() : '—'}
+                  {mov.data_hora ? new Date(mov.data_hora).toLocaleString('pt-BR') : '—'}
                 </span>
                 {!disabled && (
                   <>
@@ -104,18 +128,18 @@ export function MovementsForm({ movements, onChange, disabled }: MovementsFormPr
         </div>
       ) : (
         <div className="text-xs text-muted-foreground py-4 text-center border border-dashed rounded-md bg-muted/20">
-          No movements registered.
+          Nenhum movimento registrado.
         </div>
       )}
 
       {!disabled && (
-        <div className="flex gap-2 items-end mt-4 bg-muted/20 p-3 rounded-md border border-border/50">
-          <div className="flex-1 space-y-1">
-            <label className="text-[11px] font-medium text-muted-foreground">Name / Description</label>
+        <div className="flex flex-wrap gap-2 items-end mt-4 bg-muted/20 p-3 rounded-md border border-border/50">
+          <div className="flex-1 min-w-[200px] space-y-1">
+            <label className="text-[11px] font-medium text-muted-foreground">Nome / Descrição</label>
             <Input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="E.g.: Conclusão"
+              placeholder="Ex.: Conclusão"
               className="h-8 text-xs bg-background"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -126,11 +150,26 @@ export function MovementsForm({ movements, onChange, disabled }: MovementsFormPr
             />
           </div>
           <div className="w-24 space-y-1">
-            <label className="text-[11px] font-medium text-muted-foreground">TPU Code</label>
+            <label className="text-[11px] font-medium text-muted-foreground">Código TPU</label>
             <Input
               value={newCode}
               onChange={(e) => setNewCode(e.target.value)}
-              placeholder="E.g.: 51"
+              placeholder="Ex.: 51"
+              className="h-8 text-xs bg-background"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSave();
+                }
+              }}
+            />
+          </div>
+          <div className="w-40 space-y-1">
+            <label className="text-[11px] font-medium text-muted-foreground">Data e Hora</label>
+            <Input
+              type="datetime-local"
+              value={newDataHora}
+              onChange={(e) => setNewDataHora(e.target.value)}
               className="h-8 text-xs bg-background"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -150,7 +189,7 @@ export function MovementsForm({ movements, onChange, disabled }: MovementsFormPr
                 className="h-8 shrink-0 bg-primary text-primary-foreground"
               >
                 <Check className="h-4 w-4 mr-1" />
-                Save
+                Salvar
               </Button>
               <Button
                 type="button"
@@ -171,7 +210,7 @@ export function MovementsForm({ movements, onChange, disabled }: MovementsFormPr
               className="h-8 shrink-0"
             >
               <Plus className="h-4 w-4 mr-1" />
-              Add
+              Adicionar
             </Button>
           )}
         </div>

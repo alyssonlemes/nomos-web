@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
+import { toast } from 'sonner';
 import { LegalActionTypeService, LegalActionType } from '@/services/legal-action-type.service';
 
 export default function LegalActionTypeEditPage() {
@@ -13,7 +14,6 @@ export default function LegalActionTypeEditPage() {
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingType, setIsLoadingType] = useState(true);
-  const [error, setError] = useState('');
   const [type, setType] = useState<LegalActionType | null>(null);
   const [form, setForm] = useState({ name: '', code: '', description: '' });
 
@@ -26,7 +26,6 @@ export default function LegalActionTypeEditPage() {
   const loadType = async (id: number) => {
     try {
       setIsLoadingType(true);
-      setError('');
       const data = await LegalActionTypeService.getLegalActionTypeById(id);
       setType(data);
       setForm({
@@ -36,7 +35,7 @@ export default function LegalActionTypeEditPage() {
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar tipo de ação';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoadingType(false);
     }
@@ -52,7 +51,7 @@ export default function LegalActionTypeEditPage() {
     setIsLoading(true);
 
     if (!typeId || !type) {
-      setError('ID do tipo inválido');
+      toast.error('ID do tipo inválido');
       setIsLoading(false);
       return;
     }
@@ -69,7 +68,7 @@ export default function LegalActionTypeEditPage() {
       setLocation('/legal-action-types');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar tipo de ação';
-      setError(errorMessage);
+      toast.error(errorMessage);
       setIsLoading(false);
     }
   };
@@ -115,12 +114,6 @@ export default function LegalActionTypeEditPage() {
           <p className="text-muted-foreground">Atualize as informações do tipo {type.name}</p>
         </div>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         <form onSubmit={handleSubmit}>
           <Card className="mb-6">

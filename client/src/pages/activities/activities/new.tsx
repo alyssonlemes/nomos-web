@@ -95,7 +95,6 @@ export default function ActivityNewPage() {
 	const [participantSearch, setParticipantSearch] = useState("");
 	const [isBootstrapping, setIsBootstrapping] = useState(true);
 	const [isSaving, setIsSaving] = useState(false);
-	const [error, setError] = useState("");
 
 	useEffect(() => {
 		const loadUsersAndColumns = async () => {
@@ -103,7 +102,7 @@ export default function ActivityNewPage() {
 				setIsBootstrapping(true);
 				const user = UserService.getStoredUser();
 				if (!user?.organization_id) {
-					setError("Organização não encontrada");
+					toast.error("Organização não encontrada");
 					return;
 				}
 
@@ -171,7 +170,6 @@ export default function ActivityNewPage() {
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		setError("");
 		setIsSaving(true);
 
 		try {
@@ -194,7 +192,6 @@ export default function ActivityNewPage() {
 			setLocation("/activities");
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : "Erro ao salvar";
-			setError(msg);
 			toast.error(msg);
 		} finally {
 			setIsSaving(false);
@@ -226,12 +223,6 @@ export default function ActivityNewPage() {
 					<p className="text-muted-foreground">Crie uma tarefa ou evento</p>
 				</div>
 
-				{error && (
-					<Alert variant="destructive" className="mb-6">
-						<AlertCircle className="h-4 w-4" />
-						<AlertDescription>{error}</AlertDescription>
-					</Alert>
-				)}
 
 				<form onSubmit={handleSubmit}>
 					<Card className="mb-6">

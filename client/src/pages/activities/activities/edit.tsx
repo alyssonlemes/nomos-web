@@ -101,7 +101,6 @@ export default function ActivityEditPage() {
   const [participantSearch, setParticipantSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState("");
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -109,11 +108,11 @@ export default function ActivityEditPage() {
         setIsLoading(true);
         const user = UserService.getStoredUser();
         if (!user?.organization_id) {
-          setError("Organização não encontrada");
+          toast.error("Organização não encontrada");
           return;
         }
         if (!activityId) {
-          setError("ID da atividade inválido");
+          toast.error("ID da atividade inválido");
           return;
         }
 
@@ -151,7 +150,6 @@ export default function ActivityEditPage() {
         });
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Erro ao carregar atividade";
-        setError(msg);
         toast.error(msg);
         setStatusOptions([]);
       } finally {
@@ -199,7 +197,6 @@ export default function ActivityEditPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     setIsSaving(true);
 
     try {
@@ -224,7 +221,6 @@ export default function ActivityEditPage() {
       setLocation("/activities");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro ao salvar";
-      setError(msg);
       toast.error(msg);
     } finally {
       setIsSaving(false);
@@ -254,12 +250,6 @@ export default function ActivityEditPage() {
           <p className="text-muted-foreground">Atualize os detalhes</p>
         </div>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         <form onSubmit={handleSubmit}>
           <Card className="mb-6">

@@ -11,6 +11,7 @@ import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-ac
 import { formatLegalStatus, formatActionType } from '@/utils/formats';
 import { SelectField } from '@/components/ui/select-field';
 import { canAccess, getCurrentRole } from '@/lib/rbac';
+import { toast } from 'sonner';
 
 export default function ProcessosPage() {
   const [, setLocation] = useLocation();
@@ -20,8 +21,6 @@ export default function ProcessosPage() {
   const shouldShowOwnDataNotice = currentRole === 'MEMBER' || currentRole === 'VIEWER';
   const [actions, setActions] = useState<LegalAction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [statuses, setStatuses] = useState<LegalActionStatus[]>([]);
@@ -50,7 +49,6 @@ export default function ProcessosPage() {
   const loadActions = async () => {
     try {
       setIsLoading(true);
-      setError('');
       const skip = (currentPage - 1) * ITEMS_PER_PAGE;
       const data = await LegalActionService.getLegalActions(
         skip,
@@ -61,7 +59,7 @@ export default function ProcessosPage() {
       setTotal(data.total || 0);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar processos';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -73,14 +71,12 @@ export default function ProcessosPage() {
 
   const handleDelete = async (id: number, action: LegalAction) => {
     try {
-      setError('');
-      setSuccess('');
       await LegalActionService.deleteLegalAction(id);
-      setSuccess('Processo excluído com sucesso!');
+      toast.success('Processo excluído com sucesso!');
       loadActions();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao excluir processo';
-      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -204,19 +200,6 @@ export default function ProcessosPage() {
           </Alert>
         )}
 
-        {/* Mensagens */}
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {success && (
-          <Alert className="mb-6 bg-green-50 border-green-200">
-            <AlertDescription className="text-green-800">{success}</AlertDescription>
-          </Alert>
-        )}
 
         <Card>
           <CardHeader>

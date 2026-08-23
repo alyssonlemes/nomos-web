@@ -33,7 +33,6 @@ export default function UsuariosListPage() {
   const canEditUsers = canAccess(currentRole, 'users.write');
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
   const [total, setTotal] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserResponse | null>(null);
@@ -45,13 +44,12 @@ export default function UsuariosListPage() {
   const loadUsers = async () => {
     try {
       setIsLoading(true);
-      setError('');
       const data = await UserService.getUsers(0, 100);
       setUsers(data.users);
       setTotal(data.total);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar usuários';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -66,7 +64,6 @@ export default function UsuariosListPage() {
     if (!userToDelete) return;
 
     setDeleteDialogOpen(false);
-    setError('');
 
     try {
       await UserService.unlinkOrganization(userToDelete.id);
@@ -77,7 +74,6 @@ export default function UsuariosListPage() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao excluir usuário';
       toast.error(errorMessage);
-      setError(errorMessage);
     }
   };
 
@@ -192,13 +188,6 @@ export default function UsuariosListPage() {
             </Button>
           )}
         </div>
-
-        {/* Mensagens de Erro */}
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         {/* Conteudo */}
         <Card>

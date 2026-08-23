@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Loader2, Building2 } from 'lucide-react';
+import { Loader2, Building2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { OrganizationService, Organization } from '@/services/organization.service';
 import { useRequireOrganization } from '@/hooks/useRequireOrganization';
 
@@ -13,7 +13,6 @@ export default function Configuracoes() {
   const { hasOrganization } = useRequireOrganization();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!hasOrganization) return;
@@ -24,12 +23,11 @@ export default function Configuracoes() {
   const loadOrganization = async () => {
     try {
       setIsLoading(true);
-      setError('');
       const data = await OrganizationService.getUserOrganization();
       setOrganization(data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar organização';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -44,13 +42,6 @@ export default function Configuracoes() {
           <p className="text-muted-foreground">Gerencie as informações da sua organização</p>
         </div>
 
-        {/* Mensagens */}
-        {error && (
-          <Alert variant="destructive" className="mb-6 max-w-2xl mx-auto">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         {/* Carregando */}
         {isLoading ? (
