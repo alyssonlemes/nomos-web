@@ -9,13 +9,15 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Loader2, ArrowLeft, ChevronsUpDown, Check, RefreshCw, Database } from 'lucide-react';
-import { LegalActionService, LegalAction, LegalStatus, LegalActionTypeEntity, ProcessoMovimentoCreate } from '@/services/legal-action.service';
+import { LegalActionService, LegalAction, LegalStatus, LegalActionTypeEntity, ProcessoMovimentoCreate, ProcessoParteCreate } from '@/services/legal-action.service';
 import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 import { ClientService, Client } from '@/services/client.service';
 import { UserService, UserResponse } from '@/services/user.service';
 import { SelectField } from '@/components/ui/select-field';
 import { cn } from '@/lib/utils';
 import { MovementsForm } from '@/components/MovementsForm';
+import { AssuntosForm, AssuntoItem } from '@/components/AssuntosForm';
+import { PartesForm } from '@/components/PartesForm';
 import { toast } from 'sonner';
 
 const CLIENT_PAGE_SIZE = 100;
@@ -42,10 +44,12 @@ export default function ProcessoEditPage() {
     court_name: '',
     filing_date: '',
     closing_date: '',
-    assunto: '',
     orgao_julgador: '',
     valor_causa: '',
   });
+
+  const [assuntos, setAssuntos] = useState<AssuntoItem[]>([]);
+  const [partes, setPartes] = useState<ProcessoParteCreate[]>([]);
 
   const [clients, setClients] = useState<Client[]>([]);
   const [clientSearch, setClientSearch] = useState('');
@@ -98,16 +102,28 @@ export default function ProcessoEditPage() {
           ? rawLegalStatus
           : rawLegalStatus?.code) || LegalStatus.PRE_TRIAL;
 
-      let assuntosStr = '';
+      let assuntosArray: AssuntoItem[] = [];
       if (data.assuntos_json) {
         try {
           const parsed = JSON.parse(data.assuntos_json);
           if (Array.isArray(parsed)) {
-            assuntosStr = parsed.map((a: any) => (a.codigo ? `[${a.codigo}] ` : '') + (a.nome || '')).join('; ');
+             assuntosArray = parsed.map((a: any) => ({ codigo: a.codigo, nome: a.nome || '' }));
           }
         } catch {
           // ignore
         }
+      }
+      setAssuntos(assuntosArray);
+
+      if (data.partes) {
+         setPartes(data.partes.map(p => ({
+           polo: p.polo,
+           tipo_participacao: p.tipo_participacao,
+           nome: p.nome,
+           documento: p.documento,
+           oab: p.oab,
+           client_id: p.client_id
+         })));
       }
 
       setForm({
@@ -119,7 +135,6 @@ export default function ProcessoEditPage() {
         court_name: data.court_name || '',
         filing_date: data.filing_date ? data.filing_date.split('T')[0] : '',
         closing_date: data.closing_date ? data.closing_date.split('T')[0] : '',
-        assunto: assuntosStr,
         orgao_julgador: data.orgao_julgador || '',
         valor_causa: data.valor_causa != null ? String(data.valor_causa) : '',
       });
@@ -291,9 +306,10 @@ export default function ProcessoEditPage() {
         filing_date: form.filing_date || undefined,
         orgao_julgador: form.orgao_julgador || undefined,
         valor_causa: form.valor_causa ? Number(form.valor_causa) : undefined,
-        assuntos_json: form.assunto
-          ? JSON.stringify([{ codigo: '', nome: form.assunto }])
+        assuntos_json: assuntos.length > 0
+          ? JSON.stringify(assuntos)
           : undefined,
+        partes: partes.length > 0 ? partes : undefined,
         movimentos: movimentos.length > 0 ? movimentos : undefined,
       };
 
@@ -625,16 +641,7 @@ export default function ProcessoEditPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label htmlFor="assunto" className="block text-sm font-medium text-foreground">Assunto(s) do Processo</label>
-                <Input
-                  id="assunto"
-                  placeholder="Ex: IRPJ/Imposto de Renda"
-                  value={form.assunto}
-                  onChange={(e) => handleChange('assunto', e.target.value)}
-                  disabled={isLoading}
-                />
-              </div>
+
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -685,6 +692,50 @@ export default function ProcessoEditPage() {
                   />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Assuntos ──────────────────── */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-base">
+                Assuntos do Processo (TPU)
+                {assuntos.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 font-mono">
+                    {assuntos.length}
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription>Matérias do direito classificadas pelo CNJ</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AssuntosForm 
+                assuntos={assuntos}
+                onChange={setAssuntos}
+                disabled={isLoading}
+              />
+            </CardContent>
+          </Card>
+
+          {/* ── Partes ──────────────────── */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-base">
+                Partes do Processo
+                {partes.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 font-mono">
+                    {partes.length}
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription>Polos ativos, passivos e representantes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PartesForm 
+                partes={partes}
+                onChange={setPartes}
+                disabled={isLoading}
+              />
             </CardContent>
           </Card>
 
