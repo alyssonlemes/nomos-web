@@ -68,7 +68,7 @@ export default function Login() {
         </div>
 
         <div className="text-sm opacity-40 absolute bottom-6">
-          <p>&copy; 2024 Nomos. Todos os direitos reservados.</p>
+          <p>&copy; 2026 Nomos. Todos os direitos reservados.</p>
         </div>
       </div>
 

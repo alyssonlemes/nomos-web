@@ -32,4 +32,18 @@ export class DashboardService {
 
     return response.json();
   }
+
+  static async exportExcel(): Promise<Blob> {
+    const response = await AuthService.authenticatedFetch(
+      `${API_BASE_URL}/api/v1/dashboard/export-excel`,
+      { method: 'GET' }
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || error.message || 'Erro ao exportar planilha da dashboard');
+    }
+
+    return response.blob();
+  }
 }

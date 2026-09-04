@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, FileText, TrendingUp, Briefcase } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Users, FileText, TrendingUp, Briefcase, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { DashboardService, DashboardStats } from '@/services/dashboard.service';
+import { DashboardExportService } from '@/services/dashboard-export.service';
 import { formatLegalStatus, formatClientStatus, CLIENT_STATUS_KEYS } from '@/utils/formats';
+import { toast } from 'sonner';
+import { saveAs } from 'file-saver';
 
 /** Cores minimalistas (sem branco): primary + tons do tema */
 const PIE_COLORS = [
@@ -24,6 +28,44 @@ export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportToExcel = async () => {
+    if (!stats) return;
+    try {
+      setIsExporting(true);
+      try {
+        // Obter a planilha nativa com gráficos dinâmicos do backend (openpyxl DrawingML)
+        const blob = await DashboardService.exportExcel();
+        const now = new Date();
+        const fileDate = now.toISOString().slice(0, 10);
+        const fileTime = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+        saveAs(blob, `relatorio-dashboard-nomos_${fileDate}_${fileTime}.xlsx`);
+        toast.success('Relatório da Dashboard com gráficos dinâmicos exportado com sucesso!');
+        return;
+      } catch (backendErr) {
+        console.warn('Falha no endpoint backend, gerando client-side:', backendErr);
+      }
+
+      // Fallback para geração client-side
+      let orgName = '';
+      try {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const parsed = JSON.parse(userStr);
+          orgName = parsed?.organization?.name || parsed?.organization_name || '';
+        }
+      } catch {
+        // ignore
+      }
+      await DashboardExportService.exportToExcel(stats, { organizationName: orgName });
+      toast.success('Relatório da Dashboard exportado para Excel com sucesso!');
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao exportar dados para Excel');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -131,12 +173,33 @@ export default function Dashboard() {
   return (
     <div className="min-h-full p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Visão geral da sua organização
-          </p>
+        {/* Header com botão único de exportar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-1">Dashboard</h1>
+            <p className="text-muted-foreground">
+              Visão geral da sua organização
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="gap-2 border-border shadow-xs hover:bg-accent/80 transition-colors cursor-pointer"
+              disabled={isExporting || !stats}
+              id="export-dashboard-excel-btn"
+              onClick={handleExportToExcel}
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin text-emerald-600 dark:text-emerald-400" />
+              ) : (
+                <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              )}
+              <span className="font-medium">
+                {isExporting ? 'Exportando planilha...' : 'Exportar para Excel'}
+              </span>
+            </Button>
+          </div>
         </div>
 
         {/* Grid de Cards */}
@@ -225,29 +288,29 @@ export default function Dashboard() {
               <CardDescription>Distribuição dos processos ativos</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="h-[300px] p-4">
-                  {stats && Object.keys(stats.actions_by_status || {}).length > 0 ? (
-                    <div className="space-y-3">
-                      {Object.entries(stats.actions_by_status).map(([status, count]) => {
-                        const max = Math.max(...Object.values(stats.actions_by_status), 1);
-                        const width = Math.round((count / max) * 100);
-                        return (
-                          <div key={status} className="flex items-center gap-3">
-                            <div className="w-32 text-xs text-muted-foreground">{formatLegalStatus(status)}</div>
-                            <div className="flex-1 bg-muted/30 rounded h-3 overflow-hidden">
-                              <div className="h-3 bg-primary" style={{ width: `${width}%` }} />
-                            </div>
-                            <div className="w-8 text-right text-sm">{count}</div>
+              <div className="h-[300px] p-4">
+                {stats && Object.keys(stats.actions_by_status || {}).length > 0 ? (
+                  <div className="space-y-3">
+                    {Object.entries(stats.actions_by_status).map(([status, count]) => {
+                      const max = Math.max(...Object.values(stats.actions_by_status), 1);
+                      const width = Math.round((count / max) * 100);
+                      return (
+                        <div key={status} className="flex items-center gap-3">
+                          <div className="w-32 text-xs text-muted-foreground">{formatLegalStatus(status)}</div>
+                          <div className="flex-1 bg-muted/30 rounded h-3 overflow-hidden">
+                            <div className="h-3 bg-primary" style={{ width: `${width}%` }} />
                           </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="h-full flex items-center justify-center border-2 border-dashed border-muted rounded-lg">
-                      <p className="text-muted-foreground">Nenhum processo por status</p>
-                    </div>
-                  )}
-                </div>
+                          <div className="w-8 text-right text-sm">{count}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="h-full flex items-center justify-center border-2 border-dashed border-muted rounded-lg">
+                    <p className="text-muted-foreground">Nenhum processo por status</p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
