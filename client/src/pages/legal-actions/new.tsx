@@ -41,7 +41,9 @@ import { UserService, UserResponse } from '@/services/user.service';
 import { SelectField } from '../../components/ui/select-field';
 import { cn } from '@/lib/utils';
 import { MovementsForm } from '@/components/MovementsForm';
-import { ProcessoMovimentoCreate } from '@/services/legal-action.service';
+import { AssuntosForm, AssuntoItem } from '@/components/AssuntosForm';
+import { PartesForm } from '@/components/PartesForm';
+import { ProcessoMovimentoCreate, ProcessoParteCreate } from '@/services/legal-action.service';
 import { toast } from 'sonner';
 
 const CLIENT_PAGE_SIZE = 100;
@@ -85,6 +87,8 @@ export default function ProcessoNovoPage() {
   const [showPartesModal, setShowPartesModal] = useState(false);
   const [pendingPartes, setPendingPartes] = useState<PendingClientCreation[]>([]);
   const [movimentos, setMovimentos] = useState<ProcessoMovimentoCreate[]>([]);
+  const [assuntos, setAssuntos] = useState<AssuntoItem[]>([]);
+  const [partes, setPartes] = useState<ProcessoParteCreate[]>([]);
 
   const [form, setForm] = useState({
     number: '',
@@ -95,7 +99,6 @@ export default function ProcessoNovoPage() {
     legal_status: LegalStatus.PRE_TRIAL,
     court_name: '',
     filing_date: '',
-    assunto: '',
     orgao_julgador: '',
     valor_causa: '',
   });
@@ -149,15 +152,14 @@ export default function ProcessoNovoPage() {
       // Pre-fill do formulário com dados do DataJud
       const dados = result.dados;
       if (dados) {
-        const assuntoStr = dados.assuntos
-          ? dados.assuntos.map((a) => (a.codigo ? `[${a.codigo}] ` : '') + a.nome).join('; ')
-          : '';
+        if (dados.assuntos) {
+          setAssuntos(dados.assuntos.map((a: any) => ({ codigo: a.codigo, nome: a.nome || '' })));
+        }
         setForm((prev) => ({
           ...prev,
           title: prev.title || dados.classe_processual_nome || dados.orgao_julgador || numeroCNJ,
           court_name: prev.court_name || dados.court_name || dados.orgao_julgador || '',
           filing_date: prev.filing_date || (dados.data_ajuizamento?.split('T')[0] ?? ''),
-          assunto: prev.assunto || assuntoStr,
           orgao_julgador: prev.orgao_julgador || dados.orgao_julgador || '',
           valor_causa: prev.valor_causa || (dados.valor_causa ? String(dados.valor_causa) : ''),
         }));
@@ -374,6 +376,10 @@ export default function ProcessoNovoPage() {
          });
       });
 
+      if (partes.length > 0) {
+        partesPayload = [...partesPayload, ...partes];
+      }
+
       const payload: Parameters<typeof LegalActionService.createLegalAction>[0] = {
         number: form.number,
         title: form.title,
@@ -386,11 +392,7 @@ export default function ProcessoNovoPage() {
         ...(form.filing_date && { filing_date: form.filing_date }),
         ...(form.orgao_julgador && { orgao_julgador: form.orgao_julgador }),
         ...(form.valor_causa && { valor_causa: Number(form.valor_causa) }),
-        ...(form.assunto && {
-          assuntos_json: datajudResult?.dados?.assuntos
-            ? JSON.stringify(datajudResult.dados.assuntos)
-            : JSON.stringify([{ codigo: '', nome: form.assunto }]),
-        }),
+        ...(assuntos.length > 0 && { assuntos_json: JSON.stringify(assuntos) }),
         ...(datajudResult?.dados && {
           tribunal: datajudResult.dados.tribunal ?? undefined,
           comarca: datajudResult.dados.comarca ?? undefined,
