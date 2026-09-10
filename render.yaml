@@ -1,0 +1,21 @@
+# Render Blueprint — Nomos Web
+# VITE_API_URL precisa apontar para a API no Render, sem barra no final.
+# Exemplo: https://nomos-api.onrender.com
+# Defina essa variável ANTES do primeiro build (ela entra no bundle do Vite).
+
+services:
+  - type: web
+    name: nomos-web
+    runtime: node
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    startCommand: pnpm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: VITE_API_URL
+        sync: false
