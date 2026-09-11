@@ -6,15 +6,15 @@ import {
   Card,
   CardContent,
 } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
 import {
-  AlertCircle,
   Loader2,
   Plus,
   Edit2,
   Trash2,
   MessageSquare,
   Settings,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -70,6 +70,7 @@ export default function ActivitiesPage() {
   const [activityType, setActivityType] = useState<"all" | "task" | "event">(
     "all"
   );
+  const [search, setSearch] = useState("");
   const [draggedActivity, setDraggedActivity] = useState<Activity | null>(null);
   const [dragOverColumnStatus, setDragOverColumnStatus] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -240,11 +241,16 @@ export default function ActivitiesPage() {
     }
   };
 
+  const searchQuery = search.trim().toLowerCase();
   const filteredKanban = new Map<string, Activity[]>();
   kanbanData.forEach((activities, status) => {
     const filtered = activities.filter(activity => {
-      if (activityType === "all") return true;
-      return activity.type === activityType;
+      if (activityType !== "all" && activity.type !== activityType) return false;
+      if (!searchQuery) return true;
+      return (
+        activity.title.toLowerCase().includes(searchQuery) ||
+        (activity.description || "").toLowerCase().includes(searchQuery)
+      );
     });
     filteredKanban.set(status, filtered);
   });
@@ -252,21 +258,52 @@ export default function ActivitiesPage() {
   return (
     <div className="p-8 min-h-full bg-gray-50">
       <div className="max-w-full mx-auto">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              Atividades
-            </h1>
-            <p className="text-muted-foreground">
-              Gerencie tarefas e eventos em um quadro Kanban
-            </p>
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Atividades
+          </h1>
+          <p className="text-muted-foreground">
+            Gerencie tarefas e eventos em um quadro Kanban
+          </p>
+        </div>
+
+        <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+              placeholder="Buscar por título ou descrição..."
+              className="h-10 rounded-xl pl-9 bg-background"
+            />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant={activityType === "all" ? "default" : "outline"}
+              className="h-10 rounded-xl"
+              onClick={() => setActivityType("all")}
+            >
+              Todas
+            </Button>
+            <Button
+              variant={activityType === "task" ? "default" : "outline"}
+              className="h-10 rounded-xl"
+              onClick={() => setActivityType("task")}
+            >
+              Tarefas
+            </Button>
+            <Button
+              variant={activityType === "event" ? "default" : "outline"}
+              className="h-10 rounded-xl"
+              onClick={() => setActivityType("event")}
+            >
+              Eventos
+            </Button>
             {isAdmin && (
               <Button
                 onClick={() => setLocation("/activities/columns-manager")}
                 variant="outline"
-                className="gap-2"
+                className="h-10 gap-2 rounded-xl bg-background"
               >
                 <Settings className="w-4 h-4" />
                 Gerenciar Colunas
@@ -274,36 +311,10 @@ export default function ActivitiesPage() {
             )}
             <Button
               onClick={() => setLocation("/activities/novo")}
-              className="gap-2"
+              className="h-10 gap-2 rounded-xl"
             >
               <Plus className="w-4 h-4" />
               Nova Atividade
-            </Button>
-          </div>
-        </div>
-
-        <div className="mb-6 flex gap-4">
-          <div className="flex gap-2">
-            <Button
-              variant={activityType === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActivityType("all")}
-            >
-              Todas
-            </Button>
-            <Button
-              variant={activityType === "task" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActivityType("task")}
-            >
-              Tarefas
-            </Button>
-            <Button
-              variant={activityType === "event" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActivityType("event")}
-            >
-              Eventos
             </Button>
           </div>
         </div>

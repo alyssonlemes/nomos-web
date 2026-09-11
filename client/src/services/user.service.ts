@@ -32,6 +32,8 @@ export interface UserResponse {
 interface UsersListResponse {
   total: number;
   users: UserResponse[];
+  skip?: number;
+  limit?: number;
 }
 
 interface ErrorResponse {
@@ -146,10 +148,25 @@ export class UserService {
     localStorage.removeItem('userRole');
   }
 
-  static async getUsers(skip: number = 0, limit: number = 100): Promise<UsersListResponse> {
+  static async getUsers(
+    skip: number = 0,
+    limit: number = 10,
+    options?: {
+      search?: string;
+      isActive?: boolean;
+      role?: string;
+    },
+  ): Promise<UsersListResponse> {
     try {
+      const params = new URLSearchParams();
+      params.set('skip', String(skip));
+      params.set('limit', String(limit));
+      if (options?.search?.trim()) params.set('search', options.search.trim());
+      if (typeof options?.isActive === 'boolean') params.set('is_active', String(options.isActive));
+      if (options?.role) params.set('role', options.role);
+
       const response = await AuthService.authenticatedFetch(
-        `${API_BASE_URL}/api/v1/users?skip=${skip}&limit=${limit}`,
+        `${API_BASE_URL}/api/v1/users?${params.toString()}`,
         { method: 'GET' }
       );
 

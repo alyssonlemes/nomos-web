@@ -63,11 +63,17 @@ export class ClientService {
   /**
    * Buscar clientes com paginação e busca opcional
    */
-  static async getClients(skip = 0, limit = 100, search?: string): Promise<ClientsResponse> {
+  static async getClients(
+    skip = 0,
+    limit = 10,
+    search?: string,
+    status?: string,
+  ): Promise<ClientsResponse> {
     const params = new URLSearchParams();
     params.set('skip', String(skip));
     params.set('limit', String(limit));
     if (search && search.trim()) params.set('search', search.trim());
+    if (status && status !== 'all') params.set('status', status);
     const response = await AuthService.authenticatedFetch(
       `${API_BASE_URL}/api/v1/clients?${params.toString()}`,
       { method: 'GET' }

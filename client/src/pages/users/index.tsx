@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Loader2, Eye, Trash2, Edit2 } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Plus, Eye, Trash2, Edit2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertDialog,
@@ -15,10 +13,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { DataTable, Column } from '@/components/ui/data-table';
+import { DataListing, Column, LISTING_PAGE_SIZE } from '@/components/listing/DataListing';
 import { UserService, UserResponse } from '@/services/user.service';
 import { toast } from 'sonner';
-import { canAccess, getCurrentRole } from '@/lib/rbac';
+import { canAccess, getCurrentRole, getRoleLabel, ROLE_OPTIONS } from '@/lib/rbac';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 /**
  * Pagina de Usuarios/Funcionarios - Nomos
@@ -32,19 +31,36 @@ export default function UsuariosListPage() {
   const canManageInvites = canAccess(currentRole, 'invitations.manage');
   const canEditUsers = canAccess(currentRole, 'users.write');
   const [users, setUsers] = useState<UserResponse[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserResponse | null>(null);
+  const debouncedSearch = useDebouncedValue(search, 300);
+
+  const totalPages = Math.ceil(total / LISTING_PAGE_SIZE);
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [currentPage, debouncedSearch, statusFilter, roleFilter]);
 
   const loadUsers = async () => {
     try {
       setIsLoading(true);
-      const data = await UserService.getUsers(0, 100);
+      const skip = (currentPage - 1) * LISTING_PAGE_SIZE;
+      const data = await UserService.getUsers(skip, LISTING_PAGE_SIZE, {
+        search: debouncedSearch || undefined,
+        isActive: statusFilter === 'all' ? undefined : statusFilter === 'active',
+        role: roleFilter === 'all' ? undefined : roleFilter,
+      });
+      const maxPage = Math.max(1, Math.ceil((data.total ?? 0) / LISTING_PAGE_SIZE));
+      if (currentPage > maxPage) {
+        setCurrentPage(maxPage);
+        return;
+      }
       setUsers(data.users);
       setTotal(data.total);
     } catch (err) {
@@ -68,7 +84,6 @@ export default function UsuariosListPage() {
     try {
       await UserService.unlinkOrganization(userToDelete.id);
       toast.success('Usuário desvinculado da organização.');
-      console.log('Usuário desvinculado da organização:', userToDelete.id);
       setUserToDelete(null);
       loadUsers();
     } catch (err) {
@@ -77,46 +92,78 @@ export default function UsuariosListPage() {
     }
   };
 
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handleRoleChange = (value: string) => {
+    setRoleFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+  };
+
   const columns: Column<UserResponse>[] = [
     {
-      header: 'Nome',
+      id: 'user',
+      header: 'Usuário',
       accessorKey: 'full_name',
-      cell: (user: UserResponse) => (
-        <div className="font-medium text-foreground">{user.full_name}</div>
+      exportValue: (user) => `${user.full_name} (${user.email})`,
+      cell: (user) => (
+        <div>
+          <div className="font-medium text-foreground">{user.full_name}</div>
+          <div className="text-xs text-muted-foreground">{user.email}</div>
+        </div>
       ),
     },
     {
-      header: 'E-mail',
-      accessorKey: 'email',
-      cell: (user: UserResponse) => (
-        <div className="text-muted-foreground">{user.email}</div>
+      id: 'role',
+      header: 'Perfil',
+      sortValue: (user) => (user.role ? getRoleLabel(user.role) : ''),
+      exportValue: (user) => (user.role ? getRoleLabel(user.role) : '-'),
+      cell: (user) => (
+        <span className="text-foreground">{user.role ? getRoleLabel(user.role) : '-'}</span>
       ),
     },
     {
+      id: 'status',
       header: 'Status',
       accessorKey: 'is_active',
-      cell: (user: UserResponse) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          user.is_active 
-            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-            : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
-        }`}>
+      sortValue: (user) => (user.is_active ? 1 : 0),
+      exportValue: (user) => (user.is_active ? 'Ativo' : 'Inativo'),
+      cell: (user) => (
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            user.is_active
+              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+              : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
+          }`}
+        >
           {user.is_active ? 'Ativo' : 'Inativo'}
         </span>
       ),
     },
     {
+      id: 'created_at',
       header: 'Cadastrado em',
       accessorKey: 'created_at',
-      cell: (user: UserResponse) => (
+      exportValue: (user) => new Date(user.created_at).toLocaleDateString('pt-BR'),
+      cell: (user) => (
         <div className="text-sm text-muted-foreground">
           {new Date(user.created_at).toLocaleDateString('pt-BR')}
         </div>
       ),
     },
     {
+      id: 'actions',
       header: 'Ações',
-      cell: (user: UserResponse) => (
+      sortable: false,
+      hideable: false,
+      cell: (user) => (
         <div className="flex items-center gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -171,60 +218,70 @@ export default function UsuariosListPage() {
   ];
 
   return (
-    <div className="p-8 min-h-full">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Usuarios</h1>
-            <p className="text-muted-foreground">
-              Gerencie os funcionarios da sua organizacao
-            </p>
-          </div>
-          {canManageInvites && (
-            <Button className="gap-2" onClick={() => setLocation('/usuarios/novo')}>
-              <Plus className="w-4 h-4" />
-              Novo Usuario
+    <>
+      <DataListing
+        storageKey="usuarios"
+        title="Usuários"
+        description="Gerencie os funcionários da sua organização"
+        badge={
+          <span className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground">
+            {total} usuário{total !== 1 ? 's' : ''}
+          </span>
+        }
+        searchPlaceholder="Buscar por nome ou e-mail..."
+        searchValue={search}
+        onSearchChange={handleSearchChange}
+        filters={[
+          {
+            id: 'role',
+            value: roleFilter,
+            placeholder: 'Todo perfil',
+            onChange: handleRoleChange,
+            options: [
+              { value: 'all', label: 'Todo perfil' },
+              ...ROLE_OPTIONS.map((role) => ({ value: role.value, label: role.label })),
+            ],
+          },
+          {
+            id: 'status',
+            value: statusFilter,
+            placeholder: 'Todo status',
+            onChange: handleStatusChange,
+            options: [
+              { value: 'all', label: 'Todo status' },
+              { value: 'active', label: 'Ativo' },
+              { value: 'inactive', label: 'Inativo' },
+            ],
+          },
+        ]}
+        primaryAction={
+          canManageInvites
+            ? { label: 'Novo usuário', onClick: () => setLocation('/usuarios/novo') }
+            : undefined
+        }
+        columns={columns}
+        data={users}
+        isLoading={isLoading}
+        emptyTitle="Nenhum usuário encontrado"
+        emptyDescription={search || statusFilter !== 'all' || roleFilter !== 'all' ? 'Tente outro termo ou filtro.' : 'Convide o primeiro usuário da organização.'}
+        emptyAction={
+          canManageInvites && !search && statusFilter === 'all' && roleFilter === 'all' ? (
+            <Button onClick={() => setLocation('/usuarios/novo')}>
+              <Plus className="w-4 h-4 mr-2" />
+              Convidar Primeiro Usuário
             </Button>
-          )}
-        </div>
+          ) : null
+        }
+        pagination={{
+          page: currentPage,
+          totalPages,
+          total,
+          pageSize: LISTING_PAGE_SIZE,
+          onPageChange: setCurrentPage,
+        }}
+        exportFilename="usuarios"
+      />
 
-        {/* Conteudo */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Lista de Usuarios</CardTitle>
-            <CardDescription>
-              {total > 0 ? `${total} usuário${total !== 1 ? 's' : ''} cadastrado${total !== 1 ? 's' : ''}` : 'Nenhum usuário cadastrado'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : users.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground mb-4">
-                  Nenhum usuário encontrado
-                </p>
-                {canManageInvites && (
-                  <Button onClick={() => setLocation('/usuarios/novo')}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Convidar Primeiro Usuário
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <DataTable
-                data={users}
-                columns={columns}
-              />
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Dialog de Confirmação de Exclusão */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -245,6 +302,6 @@ export default function UsuariosListPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }
