@@ -28,7 +28,7 @@ import {
 import { toast } from 'sonner';
 
 export const LISTING_PAGE_SIZE = 10;
-export type { Column } from '@/components/ui/data-table';
+export type { Column, SortDirection } from '@/components/ui/data-table';
 
 export interface ListingFilterOption {
   value: string;
@@ -76,6 +76,9 @@ interface DataListingProps<T extends { id: number | string }> {
   emptyAction?: ReactNode;
   pagination?: ListingPagination;
   storageKey: string;
+  sortKey?: string;
+  sortDirection?: SortDirection;
+  onSortChange?: (sortKey: string, sortDirection: SortDirection) => void;
 }
 
 function downloadCsv(filename: string, rows: string[][]) {
@@ -129,10 +132,15 @@ export function DataListing<T extends { id: number | string }>({
   emptyAction,
   pagination,
   storageKey,
+  sortKey: controlledSortKey,
+  sortDirection: controlledSortDirection,
+  onSortChange,
 }: DataListingProps<T>) {
-  const [sortKey, setSortKey] = useState<string>();
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [internalSortKey, setInternalSortKey] = useState<string>();
+  const [internalSortDirection, setInternalSortDirection] = useState<SortDirection>('asc');
   const [hiddenColumnIds, setHiddenColumnIds] = useState<string[]>([]);
+  const sortKey = onSortChange ? controlledSortKey : internalSortKey;
+  const sortDirection = onSortChange ? (controlledSortDirection ?? 'asc') : internalSortDirection;
 
   useEffect(() => {
     try {
@@ -162,19 +170,29 @@ export function DataListing<T extends { id: number | string }>({
     [columns, hiddenColumnIds],
   );
 
-  const sortedData = useMemo(
-    () => sortRows(data, visibleColumns, sortKey, sortDirection),
-    [data, visibleColumns, sortKey, sortDirection],
-  );
-
   const handleSort = (columnId: string) => {
-    if (sortKey === columnId) {
-      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
+    const column = columns.find((item, index) => getColumnId(item, index) === columnId);
+    const nextKey = column?.sortField || columnId;
+    const nextDirection: SortDirection =
+      sortKey === nextKey || sortKey === columnId
+        ? sortDirection === 'asc'
+          ? 'desc'
+          : 'asc'
+        : 'asc';
+
+    if (onSortChange) {
+      onSortChange(nextKey, nextDirection);
       return;
     }
-    setSortKey(columnId);
-    setSortDirection('asc');
+
+    setInternalSortKey(nextKey);
+    setInternalSortDirection(nextDirection);
   };
+
+  const tableData = useMemo(
+    () => (onSortChange ? data : sortRows(data, visibleColumns, sortKey, sortDirection)),
+    [data, onSortChange, visibleColumns, sortKey, sortDirection],
+  );
 
   const toggleColumn = (columnId: string, visible: boolean) => {
     const next = visible
@@ -192,7 +210,7 @@ export function DataListing<T extends { id: number | string }>({
   };
 
   const handleExport = () => {
-    if (sortedData.length === 0) {
+    if (tableData.length === 0) {
       toast.error('Nada para exportar.');
       return;
     }
@@ -201,7 +219,7 @@ export function DataListing<T extends { id: number | string }>({
       (column) => column.header && column.header !== 'Ações',
     );
     const headerRow = exportColumns.map((column) => column.header);
-    const rows = sortedData.map((item) =>
+    const rows = tableData.map((item) =>
       exportColumns.map((column) => getColumnExportValue(item, column)),
     );
     const date = new Date().toISOString().slice(0, 10);
@@ -305,7 +323,7 @@ export function DataListing<T extends { id: number | string }>({
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : sortedData.length === 0 ? (
+          ) : tableData.length === 0 ? (
             <div className="text-center py-16 px-6">
               <p className="text-foreground font-medium mb-1">{emptyTitle}</p>
               {emptyDescription && (
@@ -317,7 +335,7 @@ export function DataListing<T extends { id: number | string }>({
             <>
               <DataTable
                 columns={visibleColumns}
-                data={sortedData}
+                data={tableData}
                 sortKey={sortKey}
                 sortDirection={sortDirection}
                 onSort={handleSort}

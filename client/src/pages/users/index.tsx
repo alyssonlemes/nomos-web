@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { DataListing, Column, LISTING_PAGE_SIZE } from '@/components/listing/DataListing';
+import { DataListing, Column, LISTING_PAGE_SIZE, SortDirection } from '@/components/listing/DataListing';
 import { UserService, UserResponse } from '@/services/user.service';
 import { toast } from 'sonner';
 import { canAccess, getCurrentRole, getRoleLabel, ROLE_OPTIONS } from '@/lib/rbac';
@@ -37,6 +37,8 @@ export default function UsuariosListPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('created_at');
+  const [sortDir, setSortDir] = useState<SortDirection>('desc');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserResponse | null>(null);
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -45,7 +47,7 @@ export default function UsuariosListPage() {
 
   useEffect(() => {
     loadUsers();
-  }, [currentPage, debouncedSearch, statusFilter, roleFilter]);
+  }, [currentPage, debouncedSearch, statusFilter, roleFilter, sortBy, sortDir]);
 
   const loadUsers = async () => {
     try {
@@ -55,6 +57,8 @@ export default function UsuariosListPage() {
         search: debouncedSearch || undefined,
         isActive: statusFilter === 'all' ? undefined : statusFilter === 'active',
         role: roleFilter === 'all' ? undefined : roleFilter,
+        sortBy,
+        sortDir,
       });
       const maxPage = Math.max(1, Math.ceil((data.total ?? 0) / LISTING_PAGE_SIZE));
       if (currentPage > maxPage) {
@@ -107,11 +111,18 @@ export default function UsuariosListPage() {
     setCurrentPage(1);
   };
 
+  const handleSortChange = (key: string, direction: SortDirection) => {
+    setSortBy(key);
+    setSortDir(direction);
+    setCurrentPage(1);
+  };
+
   const columns: Column<UserResponse>[] = [
     {
       id: 'user',
       header: 'Usuário',
       accessorKey: 'full_name',
+      sortField: 'full_name',
       exportValue: (user) => `${user.full_name} (${user.email})`,
       cell: (user) => (
         <div>
@@ -123,6 +134,7 @@ export default function UsuariosListPage() {
     {
       id: 'role',
       header: 'Perfil',
+      sortField: 'role',
       sortValue: (user) => (user.role ? getRoleLabel(user.role) : ''),
       exportValue: (user) => (user.role ? getRoleLabel(user.role) : '-'),
       cell: (user) => (
@@ -133,6 +145,7 @@ export default function UsuariosListPage() {
       id: 'status',
       header: 'Status',
       accessorKey: 'is_active',
+      sortField: 'is_active',
       sortValue: (user) => (user.is_active ? 1 : 0),
       exportValue: (user) => (user.is_active ? 'Ativo' : 'Inativo'),
       cell: (user) => (
@@ -262,6 +275,9 @@ export default function UsuariosListPage() {
         columns={columns}
         data={users}
         isLoading={isLoading}
+        sortKey={sortBy}
+        sortDirection={sortDir}
+        onSortChange={handleSortChange}
         emptyTitle="Nenhum usuário encontrado"
         emptyDescription={search || statusFilter !== 'all' || roleFilter !== 'all' ? 'Tente outro termo ou filtro.' : 'Convide o primeiro usuário da organização.'}
         emptyAction={

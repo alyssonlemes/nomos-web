@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Pencil, Trash2, Plus } from 'lucide-react';
-import { DataListing, Column, LISTING_PAGE_SIZE } from '@/components/listing/DataListing';
+import { DataListing, Column, LISTING_PAGE_SIZE, SortDirection } from '@/components/listing/DataListing';
 import { ClientService, Client } from '@/services/client.service';
 import { canAccess, getCurrentRole } from '@/lib/rbac';
 import { formatClientStatus } from '@/utils/formats';
@@ -28,13 +28,15 @@ export default function ClientesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('created_at');
+  const [sortDir, setSortDir] = useState<SortDirection>('desc');
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const totalPages = Math.ceil(total / LISTING_PAGE_SIZE);
 
   useEffect(() => {
     loadClients();
-  }, [currentPage, debouncedSearch, statusFilter]);
+  }, [currentPage, debouncedSearch, statusFilter, sortBy, sortDir]);
 
   const loadClients = async () => {
     try {
@@ -45,6 +47,8 @@ export default function ClientesPage() {
         LISTING_PAGE_SIZE,
         debouncedSearch || undefined,
         statusFilter === 'all' ? undefined : statusFilter,
+        sortBy,
+        sortDir,
       );
       const maxPage = Math.max(1, Math.ceil((data.total ?? 0) / LISTING_PAGE_SIZE));
       if (currentPage > maxPage) {
@@ -79,6 +83,12 @@ export default function ClientesPage() {
 
   const handleStatusChange = (value: string) => {
     setStatusFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (key: string, direction: SortDirection) => {
+    setSortBy(key);
+    setSortDir(direction);
     setCurrentPage(1);
   };
 
@@ -219,9 +229,12 @@ export default function ClientesPage() {
           ? { label: 'Novo cliente', onClick: () => setLocation('/clientes/novo') }
           : undefined
       }
-      columns={columns}
-      data={clients}
-      isLoading={isLoading}
+        columns={columns}
+        data={clients}
+        isLoading={isLoading}
+        sortKey={sortBy}
+        sortDirection={sortDir}
+        onSortChange={handleSortChange}
       emptyTitle="Nenhum cliente encontrado"
       emptyDescription={
         search || statusFilter !== 'all'

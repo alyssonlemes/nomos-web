@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Eye, Plus, Edit, Trash2 } from 'lucide-react';
-import { DataListing, Column, LISTING_PAGE_SIZE } from '@/components/listing/DataListing';
+import { DataListing, Column, LISTING_PAGE_SIZE, SortDirection } from '@/components/listing/DataListing';
 import { LegalActionTypeService, LegalActionType } from '@/services/legal-action-type.service';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { toast } from 'sonner';
@@ -15,13 +15,15 @@ export default function LegalActionTypesPage() {
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('id');
+  const [sortDir, setSortDir] = useState<SortDirection>('desc');
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const totalPages = Math.ceil(total / LISTING_PAGE_SIZE) || 1;
 
   useEffect(() => {
     loadTypes();
-  }, [currentPage, debouncedSearch]);
+  }, [currentPage, debouncedSearch, sortBy, sortDir]);
 
   const loadTypes = async () => {
     try {
@@ -31,6 +33,8 @@ export default function LegalActionTypesPage() {
         skip,
         LISTING_PAGE_SIZE,
         debouncedSearch || undefined,
+        sortBy,
+        sortDir,
       );
       const maxPage = Math.max(1, Math.ceil((data.total ?? 0) / LISTING_PAGE_SIZE));
       if (currentPage > maxPage) {
@@ -60,6 +64,12 @@ export default function LegalActionTypesPage() {
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (key: string, direction: SortDirection) => {
+    setSortBy(key);
+    setSortDir(direction);
     setCurrentPage(1);
   };
 
@@ -158,6 +168,9 @@ export default function LegalActionTypesPage() {
       columns={columns}
       data={types}
       isLoading={isLoading}
+      sortKey={sortBy}
+      sortDirection={sortDir}
+      onSortChange={handleSortChange}
       emptyTitle={search ? 'Nenhum tipo encontrado para a busca.' : 'Nenhum tipo de ação cadastrado.'}
       emptyAction={
         !search ? (

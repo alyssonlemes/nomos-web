@@ -68,12 +68,16 @@ export class ClientService {
     limit = 10,
     search?: string,
     status?: string,
+    sortBy?: string,
+    sortDir?: string,
   ): Promise<ClientsResponse> {
     const params = new URLSearchParams();
     params.set('skip', String(skip));
     params.set('limit', String(limit));
     if (search && search.trim()) params.set('search', search.trim());
     if (status && status !== 'all') params.set('status', status);
+    if (sortBy) params.set('sort_by', sortBy);
+    if (sortDir) params.set('sort_dir', sortDir);
     const response = await AuthService.authenticatedFetch(
       `${API_BASE_URL}/api/v1/clients?${params.toString()}`,
       { method: 'GET' }

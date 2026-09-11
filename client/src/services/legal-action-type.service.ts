@@ -30,12 +30,16 @@ export class LegalActionTypeService {
   static async getLegalActionTypes(
     skip = 0,
     limit = 10,
-    search?: string
+    search?: string,
+    sortBy?: string,
+    sortDir?: string,
   ): Promise<{ types: LegalActionType[]; total: number; skip: number; limit: number }> {
     const params = new URLSearchParams();
     params.set('skip', String(skip));
     params.set('limit', String(limit));
     if (search?.trim()) params.set('search', search.trim());
+    if (sortBy) params.set('sort_by', sortBy);
+    if (sortDir) params.set('sort_dir', sortDir);
 
     const url = `${API_BASE_URL}/api/v1/legal-action-types?${params.toString()}`;
     const response = await AuthService.authenticatedFetch(url, { method: 'GET' });

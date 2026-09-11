@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Eye, Plus, Edit, Trash2 } from 'lucide-react';
-import { DataListing, Column, LISTING_PAGE_SIZE } from '@/components/listing/DataListing';
+import { DataListing, Column, LISTING_PAGE_SIZE, SortDirection } from '@/components/listing/DataListing';
 import { LegalActionService, LegalAction } from '@/services/legal-action.service';
 import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 import { formatLegalStatus, formatActionType } from '@/utils/formats';
@@ -25,13 +25,15 @@ export default function ProcessosPage() {
   const [statuses, setStatuses] = useState<LegalActionStatus[]>([]);
   const [selectedStatusCode, setSelectedStatusCode] = useState('all');
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('created_at');
+  const [sortDir, setSortDir] = useState<SortDirection>('desc');
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const totalPages = Math.ceil(total / LISTING_PAGE_SIZE);
 
   useEffect(() => {
     loadActions();
-  }, [currentPage, selectedStatusCode, debouncedSearch]);
+  }, [currentPage, selectedStatusCode, debouncedSearch, sortBy, sortDir]);
 
   useEffect(() => {
     const loadStatuses = async () => {
@@ -56,6 +58,8 @@ export default function ProcessosPage() {
         selectedStatusCode === 'all' ? undefined : selectedStatusCode,
         undefined,
         debouncedSearch || undefined,
+        sortBy,
+        sortDir,
       );
       const maxPage = Math.max(1, Math.ceil((data.total || 0) / LISTING_PAGE_SIZE));
       if (currentPage > maxPage) {
@@ -90,6 +94,12 @@ export default function ProcessosPage() {
 
   const handleStatusChange = (value: string) => {
     setSelectedStatusCode(value);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (key: string, direction: SortDirection) => {
+    setSortBy(key);
+    setSortDir(direction);
     setCurrentPage(1);
   };
 
@@ -247,9 +257,12 @@ export default function ProcessosPage() {
           ? { label: 'Novo processo', onClick: () => setLocation('/legal-actions/novo') }
           : undefined
       }
-      columns={columns}
-      data={actions}
-      isLoading={isLoading}
+        columns={columns}
+        data={actions}
+        isLoading={isLoading}
+        sortKey={sortBy}
+        sortDirection={sortDir}
+        onSortChange={handleSortChange}
       emptyTitle="Nenhum processo encontrado"
       emptyDescription={
         search || selectedStatusCode !== 'all'

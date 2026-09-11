@@ -254,7 +254,9 @@ export class LegalActionService {
     limit = 10,
     legal_status?: string,
     client_id?: number,
-    search?: string
+    search?: string,
+    sortBy?: string,
+    sortDir?: string,
   ): Promise<LegalActionListResponse> {
     const params = new URLSearchParams();
     params.set('skip', String(skip));
@@ -262,6 +264,8 @@ export class LegalActionService {
     if (legal_status) params.set('legal_status', legal_status);
     if (typeof client_id !== 'undefined') params.set('client_id', String(client_id));
     if (search) params.set('search', search);
+    if (sortBy) params.set('sort_by', sortBy);
+    if (sortDir) params.set('sort_dir', sortDir);
 
     const url = `${API_BASE_URL}/api/v1/legal-actions?${params.toString()}`;
 

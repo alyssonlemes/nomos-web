@@ -13,6 +13,7 @@ export interface Column<T> {
   headerClassName?: string;
   sortable?: boolean;
   hideable?: boolean;
+  sortField?: string;
   sortValue?: (item: T) => string | number | boolean | Date | null | undefined;
   exportValue?: (item: T) => string | number | boolean | null | undefined;
 }
@@ -122,7 +123,7 @@ export function DataTable<T extends { id: number | string }>({
             {columns.map((column, index) => {
               const columnId = getColumnId(column, index);
               const sortable = Boolean(onSort) && isColumnSortable(column);
-              const isActive = sortKey === columnId;
+              const isActive = sortKey === columnId || sortKey === column.sortField;
 
               return (
                 <th

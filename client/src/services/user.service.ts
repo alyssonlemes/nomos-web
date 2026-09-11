@@ -155,6 +155,8 @@ export class UserService {
       search?: string;
       isActive?: boolean;
       role?: string;
+      sortBy?: string;
+      sortDir?: string;
     },
   ): Promise<UsersListResponse> {
     try {
@@ -164,6 +166,8 @@ export class UserService {
       if (options?.search?.trim()) params.set('search', options.search.trim());
       if (typeof options?.isActive === 'boolean') params.set('is_active', String(options.isActive));
       if (options?.role) params.set('role', options.role);
+      if (options?.sortBy) params.set('sort_by', options.sortBy);
+      if (options?.sortDir) params.set('sort_dir', options.sortDir);
 
       const response = await AuthService.authenticatedFetch(
         `${API_BASE_URL}/api/v1/users?${params.toString()}`,
