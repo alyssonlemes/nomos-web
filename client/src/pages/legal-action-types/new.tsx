@@ -23,7 +23,6 @@ export default function LegalActionTypeNewPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setIsLoading(true);
 
     try {

@@ -61,7 +61,6 @@ export default function OnboardingOrganization() {
 
   const handleCreateOrganization = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setSuccess('');
     setIsLoading(true);
 

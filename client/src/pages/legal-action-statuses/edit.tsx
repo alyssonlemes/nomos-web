@@ -47,7 +47,6 @@ export default function LegalActionStatusEditPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setIsLoading(true);
 
     if (!statusId || !status) {
