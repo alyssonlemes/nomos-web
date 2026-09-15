@@ -165,6 +165,38 @@ export interface ProcessoMovimentoCreate {
   complemento_json?: string | null;
 }
 
+export function mapParteToCreate(parte: {
+  nome: string;
+  polo?: string | null;
+  tipo_participacao?: string | null;
+  documento?: string | null;
+  oab?: string | null;
+  client_id?: number | null;
+}): ProcessoParteCreate {
+  return {
+    nome: parte.nome,
+    polo: parte.polo ?? undefined,
+    tipo_participacao: parte.tipo_participacao ?? undefined,
+    documento: parte.documento ?? undefined,
+    oab: parte.oab ?? undefined,
+    client_id: parte.client_id ?? undefined,
+  };
+}
+
+export function mapMovimentoToCreate(movimento: {
+  codigo?: string | null;
+  nome: string;
+  data_hora?: string | null;
+  complemento_json?: string | null;
+}): ProcessoMovimentoCreate {
+  return {
+    codigo: movimento.codigo != null ? String(movimento.codigo) : undefined,
+    nome: movimento.nome,
+    data_hora: movimento.data_hora ?? undefined,
+    complemento_json: movimento.complemento_json ?? undefined,
+  };
+}
+
 export interface LegalActionCreate {
   number: string;
   title: string;

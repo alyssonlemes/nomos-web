@@ -26,7 +26,6 @@ import {
   Info,
   UserPlus,
   Shield,
-  History as HistoryIcon,
 } from 'lucide-react';
 import {
   LegalActionService,
@@ -34,16 +33,18 @@ import {
   LegalActionTypeEntity,
   DataJudAutoCompleteResponse,
   DataJudParteSugestao,
+  ProcessoMovimentoCreate,
+  ProcessoParteCreate,
+  mapMovimentoToCreate,
+  mapParteToCreate,
 } from '@/services/legal-action.service';
 import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 import { ClientService, Client, CreateClientData } from '@/services/client.service';
 import { UserService, UserResponse } from '@/services/user.service';
 import { SelectField } from '../../components/ui/select-field';
 import { cn } from '@/lib/utils';
-import { MovementsForm } from '@/components/MovementsForm';
-import { AssuntosForm, AssuntoItem } from '@/components/AssuntosForm';
-import { PartesForm } from '@/components/PartesForm';
-import { ProcessoMovimentoCreate, ProcessoParteCreate } from '@/services/legal-action.service';
+import { AssuntoItem } from '@/components/AssuntosForm';
+import { ProcessoRelacionadosCards } from '@/components/ProcessoRelacionadosCards';
 import { toast } from 'sonner';
 
 const CLIENT_PAGE_SIZE = 100;
@@ -153,7 +154,7 @@ export default function ProcessoNovoPage() {
       const dados = result.dados;
       if (dados) {
         if (dados.assuntos) {
-          setAssuntos(dados.assuntos.map((a: any) => ({ codigo: a.codigo, nome: a.nome || '' })));
+          setAssuntos(dados.assuntos.map((a: any) => ({ codigo: a.codigo != null ? String(a.codigo) : undefined, nome: a.nome || '' })));
         }
         setForm((prev) => ({
           ...prev,
@@ -165,13 +166,28 @@ export default function ProcessoNovoPage() {
         }));
 
         if (dados.movimentos) {
-          setMovimentos(dados.movimentos.map(m => ({
-            codigo: m.codigo,
+          setMovimentos(dados.movimentos.map((m) => mapMovimentoToCreate({
+            codigo: m.codigo ?? null,
             nome: m.nome,
-            data_hora: m.data_hora,
-            complemento_json: m.complemento ? JSON.stringify(m.complemento) : null
+            data_hora: m.data_hora ?? null,
+            complemento_json: m.complemento ? JSON.stringify(m.complemento) : null,
           })));
         }
+      }
+
+      const partesDataJud: ProcessoParteCreate[] = [
+        ...result.partes_encontradas.map((p) => mapParteToCreate(p)),
+        ...result.partes_nao_encontradas.map((p) => mapParteToCreate({
+          nome: p.nome,
+          polo: p.polo ?? null,
+          tipo_participacao: p.tipo_participacao ?? null,
+          documento: p.documento ?? null,
+          oab: p.oab ?? null,
+          client_id: null,
+        })),
+      ];
+      if (partesDataJud.length > 0) {
+        setPartes(partesDataJud);
       }
 
       // Partes já cadastradas → pre-selecionar o primeiro cliente encontrado (polo ativo)
@@ -238,6 +254,17 @@ export default function ProcessoNovoPage() {
         prev.map((p, i) =>
           i === index ? { ...p, creating: false, created: true, createdClientId: novoCliente.id } : p
         )
+      );
+
+      setPartes((prev) =>
+        prev.map((item) => {
+          const sameDocument = Boolean(item.documento && parte.documento && item.documento === parte.documento);
+          const sameName = item.nome === parte.nome && !item.client_id;
+          if (sameDocument || sameName) {
+            return { ...item, client_id: novoCliente.id };
+          }
+          return item;
+        })
       );
 
       // Se ainda não há cliente selecionado e é polo ativo, pre-selecionar
@@ -353,32 +380,6 @@ export default function ProcessoNovoPage() {
       const actionTypeId = Number(form.action_type_id);
       if (!actionTypeId || Number.isNaN(actionTypeId)) throw new Error('Selecione o tipo de ação');
 
-      let partesPayload: any[] = [];
-      if (datajudResult?.partes_encontradas) {
-         partesPayload = [...partesPayload, ...datajudResult.partes_encontradas.map(p => ({
-            nome: p.nome,
-            documento: p.documento,
-            polo: p.polo,
-            tipo_participacao: p.tipo_participacao,
-            oab: p.oab,
-            client_id: p.client_id
-         }))];
-      }
-      pendingPartes.forEach(p => {
-         partesPayload.push({
-            nome: p.parte.nome,
-            documento: p.parte.documento,
-            polo: p.parte.polo,
-            tipo_participacao: p.parte.tipo_participacao,
-            oab: p.parte.oab,
-            ...(p.created && p.createdClientId ? { client_id: p.createdClientId } : {})
-         });
-      });
-
-      if (partes.length > 0) {
-        partesPayload = [...partesPayload, ...partes];
-      }
-
       const payload: Parameters<typeof LegalActionService.createLegalAction>[0] = {
         number: form.number,
         title: form.title,
@@ -403,20 +404,11 @@ export default function ProcessoNovoPage() {
           data_distribuicao: datajudResult.dados.data_distribuicao ?? undefined,
           segredo_justica: datajudResult.dados.segredo_justica,
         }),
-        ...(partesPayload.length > 0 && { partes: partesPayload }),
-        ...(movimentos.length > 0 && { movimentos }),
+        partes,
+        movimentos,
       };
 
       await LegalActionService.createLegalAction(payload);
-
-      // Auto-sync no backend para salvar as partes e movimentações nas tabelas 1:N
-      if (datajudResult?.processo_encontrado) {
-        try {
-          await LegalActionService.autoCompleteByCNJ(form.number);
-        } catch {
-          // ignore background sync errors
-        }
-      }
 
       setLocation('/legal-actions');
     } catch (err) {
@@ -788,19 +780,6 @@ export default function ProcessoNovoPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label htmlFor="assunto" className="block text-sm font-medium text-foreground">
-                  Assunto(s) do Processo
-                </label>
-                <Input
-                  id="assunto"
-                  placeholder="Ex: IRPJ/Imposto de Renda, Indenização por Dano Moral"
-                  value={form.assunto}
-                  onChange={(e) => handleChange('assunto', e.target.value)}
-                  disabled={isLoading}
-                />
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label htmlFor="orgao_julgador" className="block text-sm font-medium text-foreground">Órgão Julgador</label>
@@ -839,30 +818,15 @@ export default function ProcessoNovoPage() {
             </CardContent>
           </Card>
 
-          {/* ── Card 3: Movements (Always visible) ──────────── */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <HistoryIcon className="w-4 h-4 text-primary" />
-                Movements
-                {movimentos.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 font-mono">
-                    {movimentos.length}
-                  </Badge>
-                )}
-              </CardTitle>
-              <CardDescription>
-                Historical movements (synchronized via DataJud or added manually)
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <MovementsForm 
-                movements={movimentos}
-                onChange={setMovimentos}
-                disabled={isLoading}
-              />
-            </CardContent>
-          </Card>
+          <ProcessoRelacionadosCards
+            assuntos={assuntos}
+            onAssuntosChange={setAssuntos}
+            partes={partes}
+            onPartesChange={setPartes}
+            movimentos={movimentos}
+            onMovimentosChange={setMovimentos}
+            disabled={isLoading}
+          />
 
           <div className="flex items-center justify-end gap-4">
             <Button

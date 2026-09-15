@@ -9,15 +9,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Loader2, ArrowLeft, ChevronsUpDown, Check, RefreshCw, Database } from 'lucide-react';
-import { LegalActionService, LegalAction, LegalStatus, LegalActionTypeEntity, ProcessoMovimentoCreate, ProcessoParteCreate } from '@/services/legal-action.service';
+import { LegalActionService, LegalAction, LegalStatus, LegalActionTypeEntity, ProcessoMovimentoCreate, ProcessoParteCreate, mapMovimentoToCreate, mapParteToCreate } from '@/services/legal-action.service';
 import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 import { ClientService, Client } from '@/services/client.service';
 import { UserService, UserResponse } from '@/services/user.service';
 import { SelectField } from '@/components/ui/select-field';
 import { cn } from '@/lib/utils';
-import { MovementsForm } from '@/components/MovementsForm';
-import { AssuntosForm, AssuntoItem } from '@/components/AssuntosForm';
-import { PartesForm } from '@/components/PartesForm';
+import { AssuntoItem } from '@/components/AssuntosForm';
+import { ProcessoRelacionadosCards } from '@/components/ProcessoRelacionadosCards';
 import { toast } from 'sonner';
 
 const CLIENT_PAGE_SIZE = 100;
@@ -107,7 +106,10 @@ export default function ProcessoEditPage() {
         try {
           const parsed = JSON.parse(data.assuntos_json);
           if (Array.isArray(parsed)) {
-             assuntosArray = parsed.map((a: any) => ({ codigo: a.codigo, nome: a.nome || '' }));
+             assuntosArray = parsed.map((a: any) => ({
+               codigo: a.codigo != null ? String(a.codigo) : undefined,
+               nome: a.nome || '',
+             }));
           }
         } catch {
           // ignore
@@ -115,16 +117,7 @@ export default function ProcessoEditPage() {
       }
       setAssuntos(assuntosArray);
 
-      if (data.partes) {
-         setPartes(data.partes.map(p => ({
-           polo: p.polo,
-           tipo_participacao: p.tipo_participacao,
-           nome: p.nome,
-           documento: p.documento,
-           oab: p.oab,
-           client_id: p.client_id
-         })));
-      }
+      setPartes((data.partes ?? []).map(mapParteToCreate));
 
       setForm({
         title: data.title || '',
@@ -139,14 +132,7 @@ export default function ProcessoEditPage() {
         valor_causa: data.valor_causa != null ? String(data.valor_causa) : '',
       });
 
-      if (data.movimentos) {
-        setMovimentos(data.movimentos.map(m => ({
-          codigo: m.codigo,
-          nome: m.nome,
-          data_hora: m.data_hora,
-          complemento_json: m.complemento_json
-        })));
-      }
+      setMovimentos((data.movimentos ?? []).map(mapMovimentoToCreate));
 
       if (data.client_id) {
         try {
@@ -295,7 +281,6 @@ export default function ProcessoEditPage() {
       const actionTypeId = form.action_type_id ? parseInt(form.action_type_id, 10) : undefined;
 
       const payload: Parameters<typeof LegalActionService.updateLegalAction>[1] = {
-        number: form.number,
         title: form.title,
         client_id: clientId,
         action_type_id: actionTypeId,
@@ -304,13 +289,14 @@ export default function ProcessoEditPage() {
         legal_status: form.legal_status as LegalStatus,
         court_name: form.court_name || undefined,
         filing_date: form.filing_date || undefined,
+        closing_date: form.closing_date || undefined,
         orgao_julgador: form.orgao_julgador || undefined,
         valor_causa: form.valor_causa ? Number(form.valor_causa) : undefined,
         assuntos_json: assuntos.length > 0
           ? JSON.stringify(assuntos)
           : undefined,
-        partes: partes.length > 0 ? partes : undefined,
-        movimentos: movimentos.length > 0 ? movimentos : undefined,
+        partes,
+        movimentos,
       };
 
       await LegalActionService.updateLegalAction(actionId, payload);
@@ -695,71 +681,15 @@ export default function ProcessoEditPage() {
             </CardContent>
           </Card>
 
-          {/* ── Assuntos ──────────────────── */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="text-base">
-                Assuntos do Processo (TPU)
-                {assuntos.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 font-mono">
-                    {assuntos.length}
-                  </Badge>
-                )}
-              </CardTitle>
-              <CardDescription>Matérias do direito classificadas pelo CNJ</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <AssuntosForm 
-                assuntos={assuntos}
-                onChange={setAssuntos}
-                disabled={isLoading}
-              />
-            </CardContent>
-          </Card>
-
-          {/* ── Partes ──────────────────── */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="text-base">
-                Partes do Processo
-                {partes.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 font-mono">
-                    {partes.length}
-                  </Badge>
-                )}
-              </CardTitle>
-              <CardDescription>Polos ativos, passivos e representantes</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <PartesForm 
-                partes={partes}
-                onChange={setPartes}
-                disabled={isLoading}
-              />
-            </CardContent>
-          </Card>
-
-          {/* ── Movements (Always visible) ──────────────────── */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="text-base">
-                Movimentos
-                {movimentos.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 font-mono">
-                    {movimentos.length}
-                  </Badge>
-                )}
-              </CardTitle>
-              <CardDescription>Movimentos históricos sincronizados via DataJud ou adicionados manualmente</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <MovementsForm 
-                movements={movimentos}
-                onChange={setMovimentos}
-                disabled={isLoading}
-              />
-            </CardContent>
-          </Card>
+          <ProcessoRelacionadosCards
+            assuntos={assuntos}
+            onAssuntosChange={setAssuntos}
+            partes={partes}
+            onPartesChange={setPartes}
+            movimentos={movimentos}
+            onMovimentosChange={setMovimentos}
+            disabled={isLoading}
+          />
 
           <div className="flex items-center justify-end gap-4">
             <Button
