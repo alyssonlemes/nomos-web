@@ -806,7 +806,7 @@ export default function ProcessoNovoPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="filing_date" className="block text-sm font-medium text-foreground">Data de Ajuizamento / Distribuição</label>
+                <label htmlFor="filing_date" className="block text-sm font-medium text-foreground">Data de Distribuição</label>
                 <Input
                   id="filing_date"
                   type="date"

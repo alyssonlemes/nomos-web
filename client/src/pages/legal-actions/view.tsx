@@ -267,13 +267,16 @@ export default function ProcessoViewPage() {
                     <p className="text-base text-foreground">{formatDate(action.filing_date)}</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3">
-                  <Calendar className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Data de encerramento</p>
-                    <p className="text-base text-foreground">{formatDate(action.closing_date)}</p>
+                {action.closing_date && (
+                  <div className="flex items-start gap-3">
+                    <Calendar className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Data de encerramento</p>
+                      <p className="text-base text-foreground">{formatDate(action.closing_date)}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Inferida pelo movimento TPU de encerramento</p>
+                    </div>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
 

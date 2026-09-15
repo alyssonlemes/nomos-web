@@ -42,7 +42,6 @@ export default function ProcessoEditPage() {
     legal_status: 'pre_trial' as LegalStatus,
     court_name: '',
     filing_date: '',
-    closing_date: '',
     orgao_julgador: '',
     valor_causa: '',
   });
@@ -127,7 +126,6 @@ export default function ProcessoEditPage() {
         legal_status: legalStatusCode,
         court_name: data.court_name || '',
         filing_date: data.filing_date ? data.filing_date.split('T')[0] : '',
-        closing_date: data.closing_date ? data.closing_date.split('T')[0] : '',
         orgao_julgador: data.orgao_julgador || '',
         valor_causa: data.valor_causa != null ? String(data.valor_causa) : '',
       });
@@ -289,7 +287,6 @@ export default function ProcessoEditPage() {
         legal_status: form.legal_status as LegalStatus,
         court_name: form.court_name || undefined,
         filing_date: form.filing_date || undefined,
-        closing_date: form.closing_date || undefined,
         orgao_julgador: form.orgao_julgador || undefined,
         valor_causa: form.valor_causa ? Number(form.valor_causa) : undefined,
         assuntos_json: assuntos.length > 0
@@ -655,28 +652,15 @@ export default function ProcessoEditPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label htmlFor="filing_date" className="block text-sm font-medium text-foreground">Data de Distribuição</label>
-                  <Input
-                    id="filing_date"
-                    type="date"
-                    value={form.filing_date}
-                    onChange={(e) => handleChange('filing_date', e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="closing_date" className="block text-sm font-medium text-foreground">Data de Encerramento</label>
-                  <Input
-                    id="closing_date"
-                    type="date"
-                    value={form.closing_date}
-                    onChange={(e) => handleChange('closing_date', e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
+              <div className="space-y-2">
+                <label htmlFor="filing_date" className="block text-sm font-medium text-foreground">Data de Distribuição</label>
+                <Input
+                  id="filing_date"
+                  type="date"
+                  value={form.filing_date}
+                  onChange={(e) => handleChange('filing_date', e.target.value)}
+                  disabled={isLoading}
+                />
               </div>
             </CardContent>
           </Card>
