@@ -6,10 +6,14 @@ import { Eye, Plus, Edit, Trash2 } from 'lucide-react';
 import { DataListing, Column, LISTING_PAGE_SIZE, SortDirection } from '@/components/listing/DataListing';
 import { LegalActionTypeService, LegalActionType } from '@/services/legal-action-type.service';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { temPermissao } from '@/lib/rbac';
 import { toast } from 'sonner';
 
 export default function LegalActionTypesPage() {
   const [, setLocation] = useLocation();
+  const canCreate = temPermissao('processos', 'criar');
+  const canEdit = temPermissao('processos', 'editar');
+  const canDelete = temPermissao('processos', 'excluir');
   const [types, setTypes] = useState<LegalActionType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -111,6 +115,7 @@ export default function LegalActionTypesPage() {
       className: 'text-right',
       cell: (row) => (
         <div className="flex items-center gap-2 justify-end">
+          {canEdit && (
           <Button
             variant="ghost"
             size="sm"
@@ -120,6 +125,7 @@ export default function LegalActionTypesPage() {
           >
             <Edit className="h-4 w-4" />
           </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -129,6 +135,7 @@ export default function LegalActionTypesPage() {
           >
             <Eye className="h-4 w-4" />
           </Button>
+          {canDelete && (
           <ConfirmDialog
             title="Excluir tipo de ação"
             description={`Tem certeza que deseja excluir o tipo "${row.name}"? Se houver processos usando este tipo, a exclusão não será permitida.`}
@@ -146,6 +153,7 @@ export default function LegalActionTypesPage() {
               </Button>
             }
           />
+          )}
         </div>
       ),
     },
@@ -164,7 +172,7 @@ export default function LegalActionTypesPage() {
       searchPlaceholder="Buscar por nome ou código..."
       searchValue={search}
       onSearchChange={handleSearchChange}
-      primaryAction={{ label: 'Novo tipo', onClick: () => setLocation('/legal-action-types/novo') }}
+      primaryAction={canCreate ? { label: 'Novo tipo', onClick: () => setLocation('/legal-action-types/novo') } : undefined}
       columns={columns}
       data={types}
       isLoading={isLoading}
@@ -173,7 +181,7 @@ export default function LegalActionTypesPage() {
       onSortChange={handleSortChange}
       emptyTitle={search ? 'Nenhum tipo encontrado para a busca.' : 'Nenhum tipo de ação cadastrado.'}
       emptyAction={
-        !search ? (
+        !search && canCreate ? (
           <Button
             variant="outline"
             onClick={() => setLocation('/legal-action-types/novo')}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { InvitationService } from '@/services/invitation.service';
-import { canAccess, getCurrentRole } from '@/lib/rbac';
+import { AccessProfileService, AccessProfile } from '@/services/access-profile.service';
+import { ehAdministrador, temPermissao } from '@/lib/rbac';
 
 /**
  * Pagina de Convidar Usuarios - Nomos
@@ -17,12 +18,25 @@ import { canAccess, getCurrentRole } from '@/lib/rbac';
 
 export default function UsuariosNewPage() {
   const [, setLocation] = useLocation();
-  const currentRole = getCurrentRole();
-  const canManageInvites = canAccess(currentRole, 'invitations.manage');
+  const canManageInvites = temPermissao('usuarios', 'criar');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'admin' | 'member' | 'viewer' | 'assistant'>('member');
+  const [profiles, setProfiles] = useState<AccessProfile[]>([]);
+  const [profileId, setProfileId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState('');
+
+  const perfisDisponiveis = profiles.filter((perfil) => ehAdministrador() || perfil.name !== 'Administrador');
+
+  useEffect(() => {
+    AccessProfileService.list()
+      .then((lista) => {
+        const visiveis = lista.filter((perfil) => ehAdministrador() || perfil.name !== 'Administrador');
+        setProfiles(lista);
+        const membro = visiveis.find((perfil) => perfil.name === 'Membro') ?? visiveis[0];
+        if (membro) setProfileId(String(membro.id));
+      })
+      .catch(() => setProfiles([]));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,9 +54,14 @@ export default function UsuariosNewPage() {
       return;
     }
 
+    if (!profileId) {
+      toast.error('Selecione um perfil');
+      return;
+    }
+
     try {
       setIsLoading(true);
-      await InvitationService.inviteUser({ email: trimmedEmail, role });
+      await InvitationService.inviteUser({ email: trimmedEmail, profile_id: Number(profileId) });
       setSuccess('Convite enviado com sucesso');
       setEmail('');
     } catch (err) {
@@ -59,7 +78,7 @@ export default function UsuariosNewPage() {
         <div className="max-w-3xl mx-auto">
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>Apenas administradores e proprietários podem convidar usuários.</AlertDescription>
+            <AlertDescription>Você não tem permissão para convidar usuários.</AlertDescription>
           </Alert>
           <Button onClick={() => setLocation('/home')}>Voltar para Home</Button>
         </div>
@@ -118,23 +137,27 @@ export default function UsuariosNewPage() {
                 />
 
                 <div className="space-y-2 mt-4">
-                  <label htmlFor="role" className="block text-sm font-medium text-foreground">
-                    Papel
+                  <label htmlFor="perfil" className="block text-sm font-medium text-foreground">
+                    Perfil
                   </label>
                   <select
-                    id="role"
-                    value={role}
-                    onChange={(e) =>
-                      setRole(e.target.value as 'admin' | 'member' | 'viewer' | 'assistant')
-                    }
+                    id="perfil"
+                    value={profileId}
+                    onChange={(e) => setProfileId(e.target.value)}
                     disabled={isLoading}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <option value="admin">Administrador</option>
-                    <option value="member">Membro</option>
-                    <option value="viewer">Visualizador</option>
-                    <option value="assistant">Assistente</option>
+                    {perfisDisponiveis.map((perfil) => (
+                      <option key={perfil.id} value={perfil.id}>
+                        {perfil.name}
+                      </option>
+                    ))}
                   </select>
+                  {perfisDisponiveis.find((perfil) => String(perfil.id) === profileId)?.description && (
+                    <p className="text-xs text-muted-foreground">
+                      {perfisDisponiveis.find((perfil) => String(perfil.id) === profileId)?.description}
+                    </p>
+                  )}
                 </div>
               </div>
             </CardContent>

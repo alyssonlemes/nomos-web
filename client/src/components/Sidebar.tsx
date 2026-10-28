@@ -14,7 +14,7 @@ import {
   CheckSquare,
 } from "lucide-react";
 import { AuthService } from "@/services/auth.service";
-import { UserRole, getCurrentRole } from "@/lib/rbac";
+import { temPermissao, type ModuloSistema } from "@/lib/rbac";
 
 /**
  * Componente Sidebar - Nomos
@@ -26,7 +26,7 @@ interface MenuItem {
   id: string;
   label: string;
   icon: React.ReactNode;
-  allowedRoles?: UserRole[];
+  modulo?: ModuloSistema;
   href?: string;
   submenu?: SubMenuItem[];
 }
@@ -42,21 +42,20 @@ export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<string[]>(["clientes"]);
-  const currentRole = getCurrentRole();
 
   const menuItems: MenuItem[] = [
     {
       id: "home",
       label: "Home",
       icon: <Grid3x3 className="w-5 h-5" />,
-      allowedRoles: ["ADMIN", "OWNER", "MEMBER", "VIEWER", "ASSISTANT"],
+      modulo: "dashboard",
       href: "/home",
     },
     {
       id: "clientes",
       label: "Clientes",
       icon: <Users className="w-5 h-5" />,
-      allowedRoles: ["ADMIN", "OWNER", "MEMBER", "VIEWER", "ASSISTANT"],
+      modulo: "clientes",
       href: "/clientes",
       submenu: [
         { id: "clientes-lista", label: "Lista de Clientes", href: "/clientes" },
@@ -66,14 +65,14 @@ export default function Sidebar() {
       id: "jurimetria",
       label: "Jurimetria",
       icon: <Bot className="w-5 h-5" />,
-      allowedRoles: ["ADMIN", "OWNER", "MEMBER", "VIEWER"],
+      modulo: "jurimetria",
       href: "/jurimetria",
     },
     {
       id: "processos",
       label: "Processos",
       icon: <FileText className="w-5 h-5" />,
-      allowedRoles: ["ADMIN", "OWNER", "MEMBER", "VIEWER"],
+      modulo: "processos",
       href: "/legal-actions",
       submenu: [
         {
@@ -97,7 +96,7 @@ export default function Sidebar() {
       id: "activities",
       label: "Atividades",
       icon: <CheckSquare className="w-5 h-5" />,
-      allowedRoles: ["ADMIN", "OWNER", "MEMBER", "VIEWER", "ASSISTANT"],
+      modulo: "atividades",
       href: "/activities",
       submenu: [
         { id: "activities-list", label: "Quadro", href: "/activities" },
@@ -107,7 +106,7 @@ export default function Sidebar() {
       id: "usuarios",
       label: "Usuários",
       icon: <UserCog className="w-5 h-5" />,
-      allowedRoles: ["ADMIN", "OWNER"],
+      modulo: "usuarios",
       href: "/usuarios",
       submenu: [
         {
@@ -124,6 +123,7 @@ export default function Sidebar() {
       id: "configuracoes",
       label: "Configurações",
       icon: <Settings className="w-5 h-5" />,
+      modulo: "configuracoes",
       href: "/configuracoes",
     },
     {
@@ -170,11 +170,8 @@ export default function Sidebar() {
   };
 
   const activeItem = getActiveItem();
-  const visibleMenuItems = menuItems.filter(item => {
-    if (!item.allowedRoles) return true;
-    if (!currentRole) return false;
-    return item.allowedRoles.includes(currentRole);
-  });
+  const visibleMenuItems = menuItems.filter((item) => !item.modulo || temPermissao(item.modulo));
+  const visibleSecondary = secondaryMenuItems.filter((item) => !item.modulo || temPermissao(item.modulo));
 
   return (
     <>
@@ -301,7 +298,7 @@ export default function Sidebar() {
 
         {/* Menu Secundário */}
         <div className="border-t border-sidebar-border px-4 py-4 space-y-3 flex-shrink-0">
-          {secondaryMenuItems.map(item => {
+          {visibleSecondary.map(item => {
             const isDanger = item.id === "sair";
 
             return (

@@ -7,7 +7,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { UserService, UserResponse } from '@/services/user.service';
-import { canAccess, getCurrentRole, ROLE_OPTIONS, UserRole } from '@/lib/rbac';
+import { AccessProfileService, AccessProfile } from '@/services/access-profile.service';
+import { ehAdministrador, temPermissao } from '@/lib/rbac';
 import {
   Select,
   SelectContent,
@@ -27,8 +28,7 @@ export default function UsuariosEditPage() {
   const [, setLocation] = useLocation();
   const params = useParams();
   const userId = params.id ? parseInt(params.id) : null;
-  const currentRole = getCurrentRole();
-  const canUpdateRole = canAccess(currentRole, 'users.write');
+  const canUpdateRole = temPermissao('usuarios', 'editar');
 
   const [user, setUser] = useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,10 +37,17 @@ export default function UsuariosEditPage() {
   // Form fields
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<UserRole | ''>('');
+  const [profiles, setProfiles] = useState<AccessProfile[]>([]);
+  const [profileId, setProfileId] = useState('');
 
   // Form errors
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
+
+  useEffect(() => {
+    AccessProfileService.list()
+      .then(setProfiles)
+      .catch(() => setProfiles([]));
+  }, []);
 
   useEffect(() => {
     if (userId) {
@@ -60,7 +67,7 @@ export default function UsuariosEditPage() {
       setUser(data);
       setFullName(data.full_name);
       setEmail(data.email);
-      setRole(data.role || '');
+      setProfileId(data.profile_id ? String(data.profile_id) : '');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar usuário';
       toast.error(errorMessage);
@@ -103,8 +110,8 @@ export default function UsuariosEditPage() {
       });
 
       // Update role if changed and user has permission
-      if (canUpdateRole && role !== user.role && role) {
-        await UserService.updateUserRole(userId, { role: role as UserRole });
+      if (canUpdateRole && profileId && Number(profileId) !== user.profile_id) {
+        await UserService.updateUserRole(userId, { profile_id: Number(profileId) });
       }
 
       setUser(updatedUser);
@@ -119,7 +126,7 @@ export default function UsuariosEditPage() {
   };
 
   const hasChanges =
-    (user && (fullName !== user.full_name || email !== user.email || role !== user.role)) || false;
+    (user && (fullName !== user.full_name || email !== user.email || (profileId && Number(profileId) !== user.profile_id))) || false;
 
   return (
     <div className="p-8 min-h-full">
@@ -223,21 +230,23 @@ export default function UsuariosEditPage() {
                     <Label htmlFor="role" className="text-sm font-medium">
                       Perfil de Acesso <span className="text-destructive">*</span>
                     </Label>
-                    <Select value={role} onValueChange={(value) => setRole(value as UserRole | '')}>
+                    <Select value={profileId} onValueChange={setProfileId}>
                       <SelectTrigger id="role" className="h-10 w-full">
                         <SelectValue placeholder="Selecione o perfil" />
                       </SelectTrigger>
                       <SelectContent>
-                        {ROLE_OPTIONS.map((roleOption) => (
-                          <SelectItem key={roleOption.value} value={roleOption.value}>
-                            {roleOption.label}
-                          </SelectItem>
-                        ))}
+                        {profiles
+                          .filter((perfil) => ehAdministrador() || perfil.name !== 'Administrador')
+                          .map((perfil) => (
+                            <SelectItem key={perfil.id} value={String(perfil.id)}>
+                              {perfil.name}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
-                    {role && (
+                    {profileId && (
                       <p className="text-xs text-muted-foreground">
-                        {ROLE_OPTIONS.find((item) => item.value === role)?.description}
+                        {profiles.find((item) => String(item.id) === profileId)?.description}
                       </p>
                     )}
                   </div>

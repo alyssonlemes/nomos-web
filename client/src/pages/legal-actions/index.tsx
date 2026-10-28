@@ -8,16 +8,16 @@ import { DataListing, Column, LISTING_PAGE_SIZE, SortDirection } from '@/compone
 import { LegalActionService, LegalAction } from '@/services/legal-action.service';
 import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 import { formatLegalStatus, formatActionType } from '@/utils/formats';
-import { canAccess, getCurrentRole } from '@/lib/rbac';
+import { seesOwnDataOnly, temPermissao } from '@/lib/rbac';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { toast } from 'sonner';
 
 export default function ProcessosPage() {
   const [, setLocation] = useLocation();
-  const currentRole = getCurrentRole();
-  const canReadLegalActions = canAccess(currentRole, 'legalActions.read');
-  const canWriteLegalActions = canAccess(currentRole, 'legalActions.write');
-  const shouldShowOwnDataNotice = currentRole === 'MEMBER' || currentRole === 'VIEWER';
+  const canCreateLegalActions = temPermissao('processos', 'criar');
+  const canEditLegalActions = temPermissao('processos', 'editar');
+  const canDeleteLegalActions = temPermissao('processos', 'excluir');
+  const shouldShowOwnDataNotice = seesOwnDataOnly();
   const [actions, setActions] = useState<LegalAction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -159,9 +159,9 @@ export default function ProcessosPage() {
       hideable: false,
       headerClassName: 'text-right',
       className: 'text-right',
-      cell: (row) =>
-        canWriteLegalActions ? (
+      cell: (row) => (
           <div className="flex items-center gap-2 justify-end">
+            {canEditLegalActions && (
             <Button
               variant="ghost"
               size="sm"
@@ -171,6 +171,7 @@ export default function ProcessosPage() {
             >
               <Edit className="h-4 w-4" />
             </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -180,6 +181,7 @@ export default function ProcessosPage() {
             >
               <Eye className="h-4 w-4" />
             </Button>
+            {canDeleteLegalActions && (
             <ConfirmDialog
               title="Excluir processo"
               description={`Tem certeza que deseja excluir o processo "${row.number || row.title}"? Essa acao nao pode ser desfeita.`}
@@ -197,14 +199,13 @@ export default function ProcessosPage() {
                 </Button>
               }
             />
+            )}
           </div>
-        ) : (
-          <div className="text-xs text-muted-foreground">Sem ações</div>
         ),
     },
   ];
 
-  if (!canReadLegalActions) {
+  if (!temPermissao('processos')) {
     return (
       <div className="p-8 min-h-full">
         <div className="max-w-3xl mx-auto">
@@ -253,7 +254,7 @@ export default function ProcessosPage() {
         },
       ]}
       primaryAction={
-        canWriteLegalActions
+        canCreateLegalActions
           ? { label: 'Novo processo', onClick: () => setLocation('/legal-actions/novo') }
           : undefined
       }
@@ -270,7 +271,7 @@ export default function ProcessosPage() {
           : 'Cadastre o primeiro processo da organização.'
       }
       emptyAction={
-        canWriteLegalActions && !search && selectedStatusCode === 'all' ? (
+        canCreateLegalActions && !search && selectedStatusCode === 'all' ? (
           <Button
             variant="outline"
             onClick={() => setLocation('/legal-actions/novo')}

@@ -16,6 +16,7 @@ import {
   Settings,
   Search,
 } from "lucide-react";
+import { temPermissao } from "@/lib/rbac";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
@@ -73,7 +74,9 @@ export default function ActivitiesPage() {
   const [search, setSearch] = useState("");
   const [draggedActivity, setDraggedActivity] = useState<Activity | null>(null);
   const [dragOverColumnStatus, setDragOverColumnStatus] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const canCreateActivity = temPermissao("atividades", "criar");
+  const canEditActivity = temPermissao("atividades", "editar");
+  const canDeleteActivity = temPermissao("atividades", "excluir");
 
   useEffect(() => {
     const user = UserService.getStoredUser();
@@ -83,10 +86,6 @@ export default function ActivitiesPage() {
       return;
     }
 
-    setIsAdmin(
-      user.role?.toLowerCase() === "admin" ||
-        user.role?.toLowerCase() === "owner"
-    );
     setOrgId(user.organization_id);
     loadKanban(user.organization_id, true);
     loadColumns(user.organization_id);
@@ -299,7 +298,7 @@ export default function ActivitiesPage() {
             >
               Eventos
             </Button>
-            {isAdmin && (
+            {canEditActivity && (
               <Button
                 onClick={() => setLocation("/activities/columns-manager")}
                 variant="outline"
@@ -309,6 +308,7 @@ export default function ActivitiesPage() {
                 Gerenciar Colunas
               </Button>
             )}
+            {canCreateActivity && (
             <Button
               onClick={() => setLocation("/activities/novo")}
               className="h-10 gap-2 rounded-xl"
@@ -316,6 +316,7 @@ export default function ActivitiesPage() {
               <Plus className="w-4 h-4" />
               Nova Atividade
             </Button>
+            )}
           </div>
         </div>
 
@@ -383,6 +384,8 @@ export default function ActivitiesPage() {
                             <ActivityCard
                               activity={activity}
                               isDragging={draggedActivity?.id === activity.id}
+                              canEdit={canEditActivity}
+                              canDelete={canDeleteActivity}
                               onEdit={() => setLocation(`/activities/${activity.id}`)}
                               onDelete={() => handleDelete(activity.id)}
                               onDragStart={e => handleDragStart(e, activity)}
@@ -406,6 +409,8 @@ export default function ActivitiesPage() {
 interface ActivityCardProps {
   activity: Activity;
   isDragging?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onDragStart: (e: React.DragEvent) => void;
@@ -415,6 +420,8 @@ interface ActivityCardProps {
 function ActivityCard({
   activity,
   isDragging,
+  canEdit = true,
+  canDelete = true,
   onEdit,
   onDelete,
   onDragStart,
@@ -426,9 +433,9 @@ function ActivityCard({
 
   return (
     <Card
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      draggable={canEdit}
+      onDragStart={canEdit ? onDragStart : undefined}
+      onDragEnd={canEdit ? onDragEnd : undefined}
       className={`cursor-grab active:cursor-grabbing transition-all duration-150 bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md select-none ${
         isDragging ? "opacity-40" : ""
       }`}
@@ -443,8 +450,9 @@ function ActivityCard({
               {activity.title}
             </h3>
           </div>
-          {showActions && (
+          {showActions && (canEdit || canDelete) && (
             <div className="flex gap-1 flex-shrink-0 ml-2">
+              {canEdit && (
               <button
                 onClick={e => {
                   e.stopPropagation();
@@ -454,6 +462,8 @@ function ActivityCard({
               >
                 <Edit2 className="w-4 h-4 text-blue-600" />
               </button>
+              )}
+              {canDelete && (
               <ConfirmDialog
                 title="Deletar atividade"
                 description="Tem certeza que deseja deletar esta atividade?"
@@ -467,6 +477,7 @@ function ActivityCard({
                   </button>
                 }
               />
+              )}
             </div>
           )}
         </div>

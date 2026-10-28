@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, Loader2, Mail, Calendar, CheckCircle2, XCircle, User, Edit2, Check, X } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { UserService, UserResponse } from '@/services/user.service';
+import { AccessProfileService, AccessProfile } from '@/services/access-profile.service';
 import { Badge } from '@/components/ui/badge';
-import { canAccess, getCurrentRole, getRoleLabel, ROLE_OPTIONS, UserRole } from '@/lib/rbac';
+import { ehAdministrador, rotuloPerfil, temPermissao } from '@/lib/rbac';
 import {
   Select,
   SelectContent,
@@ -26,14 +27,20 @@ export default function UsuariosViewPage() {
   const [, setLocation] = useLocation();
   const params = useParams();
   const userId = params.id ? parseInt(params.id) : null;
-  const currentRole = getCurrentRole();
-  const canUpdateRole = canAccess(currentRole, 'users.write');
+  const canUpdateRole = temPermissao('usuarios', 'editar');
 
   const [user, setUser] = useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditingRole, setIsEditingRole] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
+  const [profiles, setProfiles] = useState<AccessProfile[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState('');
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+
+  useEffect(() => {
+    AccessProfileService.list()
+      .then(setProfiles)
+      .catch(() => setProfiles([]));
+  }, []);
 
   useEffect(() => {
     if (userId) {
@@ -51,7 +58,7 @@ export default function UsuariosViewPage() {
       setIsLoading(true);
       const data = await UserService.getUserById(userId);
       setUser(data);
-      setSelectedRole(data.role || '');
+      setSelectedProfileId(data.profile_id ? String(data.profile_id) : '');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar usuário';
       toast.error(errorMessage);
@@ -61,14 +68,14 @@ export default function UsuariosViewPage() {
   };
 
   const handleUpdateRole = async () => {
-    if (!userId || !selectedRole || !user) return;
+    if (!userId || !selectedProfileId || !user) return;
 
     setIsUpdatingRole(true);
     try {
-      const updatedUser = await UserService.updateUserRole(userId, { role: selectedRole as UserRole });
+      const updatedUser = await UserService.updateUserRole(userId, { profile_id: Number(selectedProfileId) });
       setUser(updatedUser);
       setIsEditingRole(false);
-      toast.success(`Perfil atualizado para ${getRoleLabel(selectedRole as UserRole)} com sucesso!`);
+      toast.success(`Perfil atualizado para ${rotuloPerfil(updatedUser)} com sucesso!`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar role';
       toast.error(errorMessage);
@@ -189,23 +196,25 @@ export default function UsuariosViewPage() {
                   <span className="text-sm font-medium text-foreground">Perfil de Acesso</span>
                   {isEditingRole ? (
                     <div className="flex items-center gap-2">
-                      <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as UserRole | '')}>
-                        <SelectTrigger className="w-32">
+                      <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
+                        <SelectTrigger className="w-48">
                           <SelectValue placeholder="Selecione o perfil" />
                         </SelectTrigger>
                         <SelectContent>
-                          {ROLE_OPTIONS.map((roleOption) => (
-                            <SelectItem key={roleOption.value} value={roleOption.value}>
-                              {roleOption.label}
-                            </SelectItem>
-                          ))}
+                          {profiles
+                            .filter((perfil) => ehAdministrador() || perfil.name !== 'Administrador')
+                            .map((perfil) => (
+                              <SelectItem key={perfil.id} value={String(perfil.id)}>
+                                {perfil.name}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={handleUpdateRole}
-                        disabled={isUpdatingRole || selectedRole === user.role}
+                        disabled={isUpdatingRole || Number(selectedProfileId) === user.profile_id}
                         className="h-8 w-8 p-0"
                       >
                         {isUpdatingRole ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
@@ -215,7 +224,7 @@ export default function UsuariosViewPage() {
                         size="sm"
                         onClick={() => {
                           setIsEditingRole(false);
-                          setSelectedRole(user.role || '');
+                          setSelectedProfileId(user.profile_id ? String(user.profile_id) : '');
                         }}
                         className="h-8 w-8 p-0"
                       >
@@ -224,7 +233,7 @@ export default function UsuariosViewPage() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <Badge variant="default">{getRoleLabel((user.role || 'member') as UserRole)}</Badge>
+                      <Badge variant="default">{rotuloPerfil(user)}</Badge>
                       {canUpdateRole && (
                         <Button
                           variant="ghost"

@@ -4,6 +4,8 @@ import { Loader2, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { OrganizationService, Organization } from '@/services/organization.service';
 import { useRequireOrganization } from '@/hooks/useRequireOrganization';
+import { ehAdministrador } from '@/lib/rbac';
+import { MatrizPermissoes } from '@/components/permissoes/matriz-permissoes';
 
 /**
  * Página de Configurações - Nomos
@@ -52,6 +54,7 @@ export default function Configuracoes() {
             </CardContent>
           </Card>
         ) : organization ? (
+          <>
           <div className="space-y-6 max-w-2xl mx-auto">
             {/* Informações da Organização */}
             <Card>
@@ -142,6 +145,12 @@ export default function Configuracoes() {
 
             {/* TODO: Adicionar mais seções como Membres, Plano, etc */}
           </div>
+          {ehAdministrador() && (
+            <div className="max-w-5xl mx-auto mt-8">
+              <MatrizPermissoes />
+            </div>
+          )}
+          </>
         ) : (
           <Card className="max-w-2xl mx-auto">
             <CardContent className="pt-6 text-center">

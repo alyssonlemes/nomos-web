@@ -1,5 +1,5 @@
 import { AuthService } from './auth.service';
-import { UserRole } from '@/lib/rbac';
+import type { Permissao } from '@/lib/rbac';
 
 interface RegisterUserRequest {
   email: string;
@@ -14,14 +14,19 @@ interface UpdateUserRequest {
 }
 
 interface UpdateUserRoleRequest {
-  role: UserRole;
+  role?: string;
+  profile_id?: number;
 }
 
 export interface UserResponse {
   id: number;
   email: string;
   full_name: string;
-  role: UserRole | null;
+  role: string | null;
+  profile_id: number | null;
+  profile_name: string | null;
+  isolate_data: boolean;
+  permissions: Permissao[];
   organization_id: number | null;
   is_active: boolean;
   is_superuser: boolean;
@@ -89,6 +94,17 @@ function translateValidationMessage(item: {
   return 'Dados inválidos.';
 }
 
+function guardarUsuario(data: UserResponse, atualizarSessao: boolean): UserResponse {
+  if (data.role) {
+    data.role = data.role.toUpperCase();
+  }
+  if (atualizarSessao) {
+    localStorage.setItem('user', JSON.stringify(data));
+    localStorage.setItem('userRole', data.role || '');
+  }
+  return data;
+}
+
 function formatApiError(error: ErrorResponse, fallbackMessage: string): string {
   if (typeof error.detail === 'string') {
     return error.detail;
@@ -116,19 +132,7 @@ export class UserService {
         throw new Error(formatApiError(error, 'Erro ao obter dados do usuário'));
       }
 
-      const data = await response.json() as UserResponse & { role: string | null };
-      // Permitir role nula quando usuário ainda não pertence a uma organização
-      const roleUpper = data.role ? data.role.toUpperCase() : null;
-      if (roleUpper && !['ADMIN', 'OWNER', 'MEMBER', 'VIEWER', 'ASSISTANT'].includes(roleUpper)) {
-        throw new Error('Role inválida retornada pelo servidor');
-      }
-      // Normalizar role para o formato esperado pela UI (pode ser null)
-      data.role = roleUpper ? (roleUpper as UserRole) : null;
-
-      // Armazenar dados do usuário no localStorage
-      localStorage.setItem('user', JSON.stringify(data));
-      localStorage.setItem('userRole', data.role || '');
-
+      const data = guardarUsuario(await response.json() as UserResponse, true);
       return data;
     } catch (error) {
       if (error instanceof Error) {
@@ -155,6 +159,7 @@ export class UserService {
       search?: string;
       isActive?: boolean;
       role?: string;
+      profileId?: number;
       sortBy?: string;
       sortDir?: string;
     },
@@ -166,6 +171,7 @@ export class UserService {
       if (options?.search?.trim()) params.set('search', options.search.trim());
       if (typeof options?.isActive === 'boolean') params.set('is_active', String(options.isActive));
       if (options?.role) params.set('role', options.role);
+      if (options?.profileId) params.set('profile_id', String(options.profileId));
       if (options?.sortBy) params.set('sort_by', options.sortBy);
       if (options?.sortDir) params.set('sort_dir', options.sortDir);
 
@@ -265,19 +271,7 @@ export class UserService {
         throw new Error(formatApiError(error, 'Erro ao atualizar dados do usuário'));
       }
 
-      const data = await response.json() as UserResponse & { role: string | null };
-      const roleUpper = data.role ? data.role.toUpperCase() : null;
-      if (roleUpper && !['ADMIN', 'OWNER', 'MEMBER', 'VIEWER', 'ASSISTANT'].includes(roleUpper)) {
-        throw new Error('Role inválida retornada pelo servidor');
-      }
-      data.role = roleUpper ? (roleUpper as UserRole) : null;
-
-      // Atualizar localStorage apenas quando for o usuario logado
-      if (storedUserId && resolvedUserId === storedUserId) {
-        localStorage.setItem('user', JSON.stringify(data));
-        localStorage.setItem('userRole', data.role || '');
-      }
-
+      const data = guardarUsuario(await response.json() as UserResponse, Boolean(storedUserId && resolvedUserId === storedUserId));
       return data;
     } catch (error) {
       if (error instanceof Error) {
@@ -323,14 +317,7 @@ export class UserService {
         throw new Error(formatApiError(error, 'Erro ao atualizar role do usuário'));
       }
 
-      const data = await response.json() as UserResponse & { role: string | null };
-      const roleUpper = data.role ? data.role.toUpperCase() : null;
-      if (roleUpper && !['ADMIN', 'OWNER', 'MEMBER', 'VIEWER', 'ASSISTANT'].includes(roleUpper)) {
-        throw new Error('Role inválida retornada pelo servidor');
-      }
-      data.role = roleUpper ? (roleUpper as UserRole) : null;
-
-      return data;
+      return guardarUsuario(await response.json() as UserResponse, false);
     } catch (error) {
       if (error instanceof Error) {
         throw error;

@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Pencil, Trash2, Plus } from 'lucide-react';
 import { DataListing, Column, LISTING_PAGE_SIZE, SortDirection } from '@/components/listing/DataListing';
 import { ClientService, Client } from '@/services/client.service';
-import { canAccess, getCurrentRole } from '@/lib/rbac';
+import { seesOwnDataOnly, temPermissao } from '@/lib/rbac';
 import { formatClientStatus } from '@/utils/formats';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { toast } from 'sonner';
@@ -19,9 +19,10 @@ import { toast } from 'sonner';
 
 export default function ClientesPage() {
   const [, setLocation] = useLocation();
-  const currentRole = getCurrentRole();
-  const canWriteClients = canAccess(currentRole, 'clients.write');
-  const shouldShowOwnDataNotice = currentRole === 'MEMBER' || currentRole === 'VIEWER';
+  const canCreateClients = temPermissao('clientes', 'criar');
+  const canEditClients = temPermissao('clientes', 'editar');
+  const canDeleteClients = temPermissao('clientes', 'excluir');
+  const shouldShowOwnDataNotice = seesOwnDataOnly();
   const [clients, setClients] = useState<Client[]>([]);
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -154,8 +155,9 @@ export default function ClientesPage() {
       sortable: false,
       hideable: false,
       cell: (client) =>
-        canWriteClients ? (
+        canEditClients || canDeleteClients ? (
           <div className="flex items-center justify-end gap-2">
+            {canEditClients && (
             <Button
               variant="ghost"
               size="sm"
@@ -167,6 +169,8 @@ export default function ClientesPage() {
             >
               <Pencil className="h-4 w-4" />
             </Button>
+            )}
+            {canDeleteClients && (
             <ConfirmDialog
               title="Excluir cliente"
               description={`Tem certeza que deseja excluir o cliente "${client.name}"? Essa acao nao pode ser desfeita.`}
@@ -184,6 +188,7 @@ export default function ClientesPage() {
                 </Button>
               }
             />
+            )}
           </div>
         ) : null,
     },
@@ -225,7 +230,7 @@ export default function ClientesPage() {
         },
       ]}
       primaryAction={
-        canWriteClients
+        canCreateClients
           ? { label: 'Novo cliente', onClick: () => setLocation('/clientes/novo') }
           : undefined
       }
@@ -242,7 +247,7 @@ export default function ClientesPage() {
           : 'Cadastre o primeiro cliente da organização.'
       }
       emptyAction={
-        canWriteClients && !search && statusFilter === 'all' ? (
+        canCreateClients && !search && statusFilter === 'all' ? (
           <Button variant="outline" onClick={() => setLocation('/clientes/novo')}>
             <Plus className="w-4 h-4 mr-2" />
             Adicionar Primeiro Cliente

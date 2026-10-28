@@ -6,10 +6,14 @@ import { Eye, Plus, Edit, Trash2 } from 'lucide-react';
 import { DataListing, Column, LISTING_PAGE_SIZE, SortDirection } from '@/components/listing/DataListing';
 import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { temPermissao } from '@/lib/rbac';
 import { toast } from 'sonner';
 
 export default function LegalActionStatusesPage() {
   const [, setLocation] = useLocation();
+  const canCreate = temPermissao('processos', 'criar');
+  const canEdit = temPermissao('processos', 'editar');
+  const canDelete = temPermissao('processos', 'excluir');
   const [statuses, setStatuses] = useState<LegalActionStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -111,6 +115,7 @@ export default function LegalActionStatusesPage() {
       className: 'text-right',
       cell: (row) => (
         <div className="flex items-center gap-2 justify-end">
+          {canEdit && (
           <Button
             variant="ghost"
             size="sm"
@@ -120,6 +125,7 @@ export default function LegalActionStatusesPage() {
           >
             <Edit className="h-4 w-4" />
           </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -129,6 +135,7 @@ export default function LegalActionStatusesPage() {
           >
             <Eye className="h-4 w-4" />
           </Button>
+          {canDelete && (
           <ConfirmDialog
             title="Excluir status de ação"
             description={`Tem certeza que deseja excluir o status "${row.name}"? Se houver processos usando este status, a exclusão não será permitida.`}
@@ -146,6 +153,7 @@ export default function LegalActionStatusesPage() {
               </Button>
             }
           />
+          )}
         </div>
       ),
     },
@@ -164,10 +172,14 @@ export default function LegalActionStatusesPage() {
       searchPlaceholder="Buscar por nome ou código..."
       searchValue={search}
       onSearchChange={handleSearchChange}
-      primaryAction={{
-        label: 'Novo status',
-        onClick: () => setLocation('/legal-action-statuses/novo'),
-      }}
+      primaryAction={
+        canCreate
+          ? {
+              label: 'Novo status',
+              onClick: () => setLocation('/legal-action-statuses/novo'),
+            }
+          : undefined
+      }
       columns={columns}
       data={statuses}
       isLoading={isLoading}
@@ -176,7 +188,7 @@ export default function LegalActionStatusesPage() {
       onSortChange={handleSortChange}
       emptyTitle={search ? 'Nenhum status encontrado para a busca.' : 'Nenhum status de ação cadastrado.'}
       emptyAction={
-        !search ? (
+        !search && canCreate ? (
           <Button
             variant="outline"
             onClick={() => setLocation('/legal-action-statuses/novo')}

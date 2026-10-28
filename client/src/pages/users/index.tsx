@@ -15,8 +15,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { DataListing, Column, LISTING_PAGE_SIZE, SortDirection } from '@/components/listing/DataListing';
 import { UserService, UserResponse } from '@/services/user.service';
+import { AccessProfileService, AccessProfile } from '@/services/access-profile.service';
 import { toast } from 'sonner';
-import { canAccess, getCurrentRole, getRoleLabel, ROLE_OPTIONS } from '@/lib/rbac';
+import { rotuloPerfil, temPermissao } from '@/lib/rbac';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 /**
@@ -27,9 +28,10 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 export default function UsuariosListPage() {
   const [, setLocation] = useLocation();
-  const currentRole = getCurrentRole();
-  const canManageInvites = canAccess(currentRole, 'invitations.manage');
-  const canEditUsers = canAccess(currentRole, 'users.write');
+  const canManageInvites = temPermissao('usuarios', 'criar');
+  const canEditUsers = temPermissao('usuarios', 'editar');
+  const canRemoveUsers = temPermissao('usuarios', 'excluir');
+  const [profiles, setProfiles] = useState<AccessProfile[]>([]);
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -46,6 +48,12 @@ export default function UsuariosListPage() {
   const totalPages = Math.ceil(total / LISTING_PAGE_SIZE);
 
   useEffect(() => {
+    AccessProfileService.list()
+      .then(setProfiles)
+      .catch(() => setProfiles([]));
+  }, []);
+
+  useEffect(() => {
     loadUsers();
   }, [currentPage, debouncedSearch, statusFilter, roleFilter, sortBy, sortDir]);
 
@@ -56,7 +64,8 @@ export default function UsuariosListPage() {
       const data = await UserService.getUsers(skip, LISTING_PAGE_SIZE, {
         search: debouncedSearch || undefined,
         isActive: statusFilter === 'all' ? undefined : statusFilter === 'active',
-        role: roleFilter === 'all' ? undefined : roleFilter,
+        role: undefined,
+        profileId: roleFilter === 'all' ? undefined : Number(roleFilter),
         sortBy,
         sortDir,
       });
@@ -135,10 +144,10 @@ export default function UsuariosListPage() {
       id: 'role',
       header: 'Perfil',
       sortField: 'role',
-      sortValue: (user) => (user.role ? getRoleLabel(user.role) : ''),
-      exportValue: (user) => (user.role ? getRoleLabel(user.role) : '-'),
+      sortValue: (user) => rotuloPerfil(user),
+      exportValue: (user) => rotuloPerfil(user),
       cell: (user) => (
-        <span className="text-foreground">{user.role ? getRoleLabel(user.role) : '-'}</span>
+        <span className="text-foreground">{rotuloPerfil(user)}</span>
       ),
     },
     {
@@ -210,21 +219,23 @@ export default function UsuariosListPage() {
               </TooltipContent>
             </Tooltip>
           )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => openDeleteDialog(user)}
-                className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Excluir usuário</p>
-            </TooltipContent>
-          </Tooltip>
+          {canRemoveUsers && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => openDeleteDialog(user)}
+                  className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Desvincular usuário</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       ),
     },
@@ -252,7 +263,7 @@ export default function UsuariosListPage() {
             onChange: handleRoleChange,
             options: [
               { value: 'all', label: 'Todo perfil' },
-              ...ROLE_OPTIONS.map((role) => ({ value: role.value, label: role.label })),
+              ...profiles.map((perfil) => ({ value: String(perfil.id), label: perfil.name })),
             ],
           },
           {

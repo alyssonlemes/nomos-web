@@ -36,7 +36,7 @@ import Configuracoes from "./pages/Configuracoes";
 import OnboardingOrganization from "./pages/profile/OnboardingOrganization";
 import Jurimetria from "./pages/jurimetry";
 import { UserService } from "./services/user.service";
-import { UserRole } from "./lib/rbac";
+import { primeiraRotaPermitida, temPermissao, type AcaoPermissao, type ModuloSistema } from "./lib/rbac";
 
 /**
  * Componente ProtectedRoute - Verifica se usuário tem organização
@@ -44,21 +44,25 @@ import { UserRole } from "./lib/rbac";
  */
 function ProtectedRoute({
   children,
-  allowedRoles,
+  modulo,
+  acao = "visualizar",
 }: {
   children: React.ReactNode;
-  allowedRoles?: UserRole[];
+  modulo?: ModuloSistema;
+  acao?: AcaoPermissao;
 }) {
   const user = UserService.getStoredUser();
-  const userRole = user?.role;
 
   if (!user || !user.organization_id) {
     window.location.href = "/onboarding-organization";
     return null;
   }
 
-  if (allowedRoles && (!userRole || !allowedRoles.includes(userRole))) {
-    window.location.href = "/home";
+  if (modulo && !temPermissao(modulo, acao)) {
+    const destino = primeiraRotaPermitida();
+    if (window.location.pathname !== destino) {
+      window.location.href = destino;
+    }
     return null;
   }
 
@@ -77,175 +81,175 @@ function Router() {
       <Route path={"/"} component={Login} />
       {/* Rotas com Layout (Dashboard e páginas internas) */}
       <Route path={"/home"}>
-        <ProtectedRoute>
+        <ProtectedRoute modulo="dashboard">
           <Layout>
             <Dashboard />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path={"/clientes"}>
-        <ProtectedRoute>
+        <ProtectedRoute modulo="clientes">
           <Layout>
             <ClientsList />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path="/clientes/novo">
-        <ProtectedRoute>
+        <ProtectedRoute modulo="clientes" acao="criar">
           <Layout>
             <ClientsNew />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path="/clientes/:id/editar">
-        <ProtectedRoute>
+        <ProtectedRoute modulo="clientes" acao="editar">
           <Layout>
             <ClientsEdit />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path={"/activities"}>
-        <ProtectedRoute>
+        <ProtectedRoute modulo="atividades">
           <Layout>
             <ActivitiesPage />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path="/activities/novo">
-        <ProtectedRoute>
+        <ProtectedRoute modulo="atividades" acao="criar">
           <Layout>
             <ActivityNewPage />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path="/activities/columns-manager">
-        <ProtectedRoute>
+        <ProtectedRoute modulo="atividades" acao="editar">
           <Layout>
             <ColumnsManagerPage />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path="/activities/:id">
-        <ProtectedRoute>
+        <ProtectedRoute modulo="atividades" acao="editar">
           <Layout>
             <ActivityEditPage />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path={"/legal-actions"}>
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER", "MEMBER", "VIEWER"]}>
+        <ProtectedRoute modulo="processos">
           <Layout>
             <Processos />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path="/legal-actions/novo">
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER", "MEMBER", "VIEWER"]}>
+        <ProtectedRoute modulo="processos" acao="criar">
           <Layout>
             <ProcessosNew />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path="/legal-actions/:id/editar">
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER", "MEMBER", "VIEWER"]}>
+        <ProtectedRoute modulo="processos" acao="editar">
           <Layout>
             <ProcessosEdit />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path="/legal-actions/:id">
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER", "MEMBER", "VIEWER"]}>
+        <ProtectedRoute modulo="processos">
           <Layout>
             <ProcessosView />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path={"/legal-action-types"}>
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER", "MEMBER", "VIEWER"]}>
+        <ProtectedRoute modulo="processos">
           <Layout>
             <LegalActionTypes />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path="/legal-action-types/novo">
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER", "MEMBER", "VIEWER"]}>
+        <ProtectedRoute modulo="processos" acao="criar">
           <Layout>
             <LegalActionTypesNew />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path="/legal-action-types/:id/editar">
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER", "MEMBER", "VIEWER"]}>
+        <ProtectedRoute modulo="processos" acao="editar">
           <Layout>
             <LegalActionTypesEdit />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path="/legal-action-types/:id">
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER", "MEMBER", "VIEWER"]}>
+        <ProtectedRoute modulo="processos">
           <Layout>
             <LegalActionTypesView />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path={"/legal-action-statuses"}>
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER", "MEMBER", "VIEWER"]}>
+        <ProtectedRoute modulo="processos">
           <Layout>
             <LegalActionStatuses />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path="/legal-action-statuses/novo">
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER", "MEMBER", "VIEWER"]}>
+        <ProtectedRoute modulo="processos" acao="criar">
           <Layout>
             <LegalActionStatusesNew />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path="/legal-action-statuses/:id/editar">
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER", "MEMBER", "VIEWER"]}>
+        <ProtectedRoute modulo="processos" acao="editar">
           <Layout>
             <LegalActionStatusesEdit />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path="/legal-action-statuses/:id">
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER", "MEMBER", "VIEWER"]}>
+        <ProtectedRoute modulo="processos">
           <Layout>
             <LegalActionStatusesView />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path={"/jurimetria"}>
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER", "MEMBER", "VIEWER"]}>
+        <ProtectedRoute modulo="jurimetria">
           <Layout>
             <Jurimetria />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path={"/usuarios"}>
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER"]}>
+        <ProtectedRoute modulo="usuarios">
           <Layout>
             <UsuariosList />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path={"/usuarios/novo"}>
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER"]}>
+        <ProtectedRoute modulo="usuarios" acao="criar">
           <Layout>
             <UsuariosNew />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path={"/usuarios/:id"}>
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER", "MEMBER"]}>
+        <ProtectedRoute modulo="usuarios">
           <Layout>
             <UsuariosView />
           </Layout>
         </ProtectedRoute>
       </Route>
       <Route path={"/usuarios/:id/edit"}>
-        <ProtectedRoute allowedRoles={["ADMIN", "OWNER"]}>
+        <ProtectedRoute modulo="usuarios" acao="editar">
           <Layout>
             <UsuariosEdit />
           </Layout>
@@ -259,7 +263,7 @@ function Router() {
         </ProtectedRoute>
       </Route>
       <Route path="/configuracoes">
-        <ProtectedRoute>
+        <ProtectedRoute modulo="configuracoes">
           <Layout>
             <Configuracoes />
           </Layout>

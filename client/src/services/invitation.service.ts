@@ -19,6 +19,7 @@ interface InvitationsResponse {
 interface InviteUserRequest {
   email: string;
   role?: 'admin' | 'member' | 'viewer' | 'assistant';
+  profile_id?: number;
 }
 
 interface ErrorResponse {
