@@ -183,7 +183,7 @@ export default function Jurimetria() {
       id: 'welcome',
       role: 'assistant',
       content:
-        'Olá! Sou o assistente de jurimetria da Nomos. Faça perguntas sobre processos, probabilidades, tempos médios ou tendências que eu te ajudo a analisar.\n\n💡 **Para analisar um processo**, basta me mandar o número no padrão CNJ e o tribunal (ex: *5001234-56.2023.8.21.0001 no TJRS*).',
+        'Olá! Sou o assistente de jurimetria da Nomos. Posso ajudar de duas formas:\n\n💡 **Previsão de um processo** — envie o número CNJ e o tribunal. Ex: *1079865-12.2024.8.26.0100 no TJSP*\n\n📊 **Tempo médio** — pergunte estatísticas da base local de processos já finalizados. Ex: *Qual o tempo médio no Cível do TJSP?*',
       animate: false,
     },
   ]);
@@ -377,7 +377,7 @@ export default function Jurimetria() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Digite sua dúvida ou informe um processo ex: 5001234-56.2023.8.21.0001 no TJRS"
+                placeholder="Ex: 1079865-12.2024.8.26.0100 no TJSP ou Qual o tempo médio no Cível do TJSP?"
                 className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
               />
               <Button
