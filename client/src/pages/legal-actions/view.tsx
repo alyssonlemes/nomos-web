@@ -24,6 +24,7 @@ import { ClientService } from '@/services/client.service';
 import { Badge } from '@/components/ui/badge';
 import { formatLegalStatus, formatActionType } from '@/utils/formats';
 import { toast } from 'sonner';
+import ProcessoAcompanhamento from '@/components/ProcessoAcompanhamento';
 
 function getActionTypeLabel(action: LegalAction): string {
   if (action.action_type?.name) return action.action_type.name;
@@ -353,6 +354,8 @@ export default function ProcessoViewPage() {
                 )}
               </CardContent>
             </Card>
+
+            <ProcessoAcompanhamento actionId={action.id} onMovimentacao={() => loadAction()} />
 
             {/* ── Histórico de Movimentações ────────────────────────────── */}
             <Card className="mb-6">

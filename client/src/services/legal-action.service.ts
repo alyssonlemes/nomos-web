@@ -149,6 +149,26 @@ export interface LegalAction {
   movimentos?: ProcessoMovimentoEntity[];
 }
 
+export interface PrazoProcesso {
+  id: number;
+  origem: string;
+  conteudo: string;
+  data_movimentacao: string | null;
+  dias_prazo: number | null;
+  data_vencimento: string | null;
+  status: 'aberto' | 'conferir' | 'cumprido';
+  created_at: string;
+}
+
+export interface MonitoramentoProcesso {
+  ativo: boolean;
+  status: string | null;
+  frequencia: string | null;
+  limite: number;
+  em_uso: number;
+  prazos: PrazoProcesso[];
+}
+
 export interface ProcessoParteCreate {
   polo?: string | null;
   tipo_participacao?: string | null;
@@ -400,6 +420,54 @@ export class LegalActionService {
       throw err;
     }
 
+    return response.json();
+  }
+
+  static async getMonitoramento(id: number): Promise<MonitoramentoProcesso> {
+    const response = await AuthService.authenticatedFetch(
+      `${API_BASE_URL}/api/v1/legal-actions/${id}/monitoramento`,
+      { method: 'GET' }
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || error.message || 'Erro ao consultar o acompanhamento');
+    }
+    return response.json();
+  }
+
+  static async ativarMonitoramento(id: number): Promise<MonitoramentoProcesso> {
+    const response = await AuthService.authenticatedFetch(
+      `${API_BASE_URL}/api/v1/legal-actions/${id}/monitoramento`,
+      { method: 'POST' }
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || error.message || 'Erro ao acompanhar o processo');
+    }
+    return response.json();
+  }
+
+  static async encerrarMonitoramento(id: number): Promise<MonitoramentoProcesso> {
+    const response = await AuthService.authenticatedFetch(
+      `${API_BASE_URL}/api/v1/legal-actions/${id}/monitoramento`,
+      { method: 'DELETE' }
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || error.message || 'Erro ao encerrar o acompanhamento');
+    }
+    return response.json();
+  }
+
+  static async cumprirPrazo(actionId: number, prazoId: number): Promise<PrazoProcesso> {
+    const response = await AuthService.authenticatedFetch(
+      `${API_BASE_URL}/api/v1/legal-actions/${actionId}/prazos/${prazoId}/cumprir`,
+      { method: 'PATCH' }
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || error.message || 'Erro ao marcar o prazo');
+    }
     return response.json();
   }
 }

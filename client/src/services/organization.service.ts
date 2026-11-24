@@ -6,6 +6,12 @@ export interface Organization {
   document: string;
   legal_representative_name?: string | null;
   legal_representative_document?: string | null;
+  plano?: string;
+  plano_nome?: string;
+  limite_usuarios?: number;
+  limite_processos?: number;
+  usuarios_em_uso?: number;
+  processos_em_uso?: number;
   created_at: string;
   updated_at: string | null;
 }

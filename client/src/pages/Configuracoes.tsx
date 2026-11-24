@@ -107,6 +107,21 @@ export default function Configuracoes() {
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Capacidade do escritório
+                  </label>
+                  <div className="p-3 bg-muted rounded-md text-foreground space-y-1">
+                    <p>{organization.plano_nome || 'Essencial'}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {organization.usuarios_em_uso ?? 0} de {organization.limite_usuarios ?? 3} usuários
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {organization.processos_em_uso ?? 0} de {organization.limite_processos ?? 50} processos
+                    </p>
+                  </div>
+                </div>
+
                 {/* Data de Criação */}
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
@@ -142,8 +157,6 @@ export default function Configuracoes() {
                 )}
               </CardContent>
             </Card>
-
-            {/* TODO: Adicionar mais seções como Membres, Plano, etc */}
           </div>
           {ehAdministrador() && (
             <div className="max-w-5xl mx-auto mt-8">
