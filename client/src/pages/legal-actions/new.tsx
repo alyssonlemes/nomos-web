@@ -38,7 +38,7 @@ import {
   mapMovimentoToCreate,
   mapParteToCreate,
 } from '@/services/legal-action.service';
-import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
+import { LegalActionStatusService, type LegalActionStatus } from '@/services/catalogo-processo';
 import { ClientService, Client, CreateClientData } from '@/services/client.service';
 import { UserService, UserResponse } from '@/services/user.service';
 import { SelectField } from '../../components/ui/select-field';

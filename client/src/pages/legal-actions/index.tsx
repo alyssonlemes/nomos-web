@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Eye, Plus, Edit, Trash2 } from 'lucide-react';
 import { DataListing, Column, LISTING_PAGE_SIZE, SortDirection } from '@/components/listing/DataListing';
 import { LegalActionService, LegalAction } from '@/services/legal-action.service';
-import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
+import { LegalActionStatusService, type LegalActionStatus } from '@/services/catalogo-processo';
 import { formatLegalStatus, formatActionType } from '@/utils/formats';
 import { seesOwnDataOnly, temPermissao } from '@/lib/rbac';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';

@@ -19,7 +19,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { LegalActionService, LegalAction, DataJudAssunto } from '@/services/legal-action.service';
-import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
+import { LegalActionStatusService, type LegalActionStatus } from '@/services/catalogo-processo';
 import { ClientService } from '@/services/client.service';
 import { Badge } from '@/components/ui/badge';
 import { formatLegalStatus, formatActionType } from '@/utils/formats';

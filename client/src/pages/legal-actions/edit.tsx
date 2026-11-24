@@ -10,7 +10,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Loader2, ArrowLeft, ChevronsUpDown, Check, RefreshCw, Database } from 'lucide-react';
 import { LegalActionService, LegalAction, LegalStatus, LegalActionTypeEntity, ProcessoMovimentoCreate, ProcessoParteCreate, mapMovimentoToCreate, mapParteToCreate } from '@/services/legal-action.service';
-import { LegalActionStatusService, LegalActionStatus } from '@/services/legal-action-status.service';
+import { LegalActionStatusService, type LegalActionStatus } from '@/services/catalogo-processo';
 import { ClientService, Client } from '@/services/client.service';
 import { UserService, UserResponse } from '@/services/user.service';
 import { SelectField } from '@/components/ui/select-field';
