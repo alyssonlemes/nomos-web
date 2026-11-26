@@ -15,9 +15,14 @@ import { ClientService, Client } from '@/services/client.service';
 import { UserService, UserResponse } from '@/services/user.service';
 import { SelectField } from '@/components/ui/select-field';
 import { cn } from '@/lib/utils';
-import { AssuntoItem } from '@/components/AssuntosForm';
-import { ProcessoRelacionadosCards } from '@/components/ProcessoRelacionadosCards';
+import { AssuntosForm, AssuntoItem } from '@/components/AssuntosForm';
+import { PartesForm } from '@/components/PartesForm';
+import { MovementsForm } from '@/components/MovementsForm';
+import { ListaPrazos, useAcompanhamento } from '@/components/ProcessoAcompanhamento';
 import { toast } from 'sonner';
+import { TabsContent } from '@/components/ui/tabs';
+import { AbasProcesso, AbaProcesso, ListaAbasProcesso, NavegacaoAbas } from './ficha/abas-processo';
+import { PublicacoesProcesso } from './ficha/publicacoes-processo';
 
 const CLIENT_PAGE_SIZE = 100;
 const USER_PAGE_SIZE = 200;
@@ -63,6 +68,8 @@ export default function ProcessoEditPage() {
   const [selectedUsers, setSelectedUsers] = useState<SelectableUser[]>([]);
   
   const [movimentos, setMovimentos] = useState<ProcessoMovimentoCreate[]>([]);
+  const [aba, setAba] = useState<AbaProcesso>('dados');
+  const [pendentesPublicacao, setPendentesPublicacao] = useState<number | null>(null);
 
   const [isConsultingDatajud, setIsConsultingDatajud] = useState(false);
   const [datajudSyncMsg, setDatajudSyncMsg] = useState('');
@@ -260,8 +267,25 @@ export default function ProcessoEditPage() {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
+  const acompanhamento = useAcompanhamento(actionId, () => {
+    if (actionId) loadAction(actionId);
+  });
+
+  const tituloValido = () => {
+    if (!form.title || form.title.length < 3) {
+      toast.error('Título deve ter no mínimo 3 caracteres');
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (aba !== 'publicacoes') return;
+    if (!tituloValido()) {
+      setAba('dados');
+      return;
+    }
     setIsLoading(true);
 
     if (!actionId) {
@@ -271,10 +295,6 @@ export default function ProcessoEditPage() {
     }
 
     try {
-      if (!form.title || form.title.length < 3) {
-        throw new Error('Título deve ter no mínimo 3 caracteres');
-      }
-      
       const clientId = form.client_id ? parseInt(form.client_id, 10) : undefined;
       const actionTypeId = form.action_type_id ? parseInt(form.action_type_id, 10) : undefined;
 
@@ -349,7 +369,16 @@ export default function ProcessoEditPage() {
         </div>
 
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
+          <AbasProcesso aba={aba} onChange={setAba}>
+            <ListaAbasProcesso
+              complementos={{
+                andamentos: ` (${movimentos.length})`,
+                prazos: ` (${acompanhamento.dados?.prazos.filter((prazo) => prazo.status !== 'cumprido').length ?? 0})`,
+                publicacoes: pendentesPublicacao === null ? '' : ` (${pendentesPublicacao})`,
+              }}
+            />
+            <TabsContent value="dados">
 
           {/* ── DataJud Sync Info ──────────────────────────────────────── */}
           {action && (action as any).datajud_synced_at && (
@@ -665,37 +694,72 @@ export default function ProcessoEditPage() {
             </CardContent>
           </Card>
 
-          <ProcessoRelacionadosCards
-            assuntos={assuntos}
-            onAssuntosChange={setAssuntos}
-            partes={partes}
-            onPartesChange={setPartes}
-            movimentos={movimentos}
-            onMovimentosChange={setMovimentos}
-            disabled={isLoading}
-          />
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-base">Assuntos do processo</CardTitle>
+              <CardDescription>Matérias do direito classificadas pelo CNJ</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AssuntosForm assuntos={assuntos} onChange={setAssuntos} disabled={isLoading} />
+            </CardContent>
+          </Card>
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-base">Partes do processo</CardTitle>
+              <CardDescription>Polos ativos, passivos e representantes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PartesForm partes={partes} onChange={setPartes} disabled={isLoading} />
+            </CardContent>
+          </Card>
+            </TabsContent>
+            <TabsContent value="andamentos">
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="text-base">Andamentos</CardTitle>
+                  <CardDescription>Movimentos do processo</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <MovementsForm movements={movimentos} onChange={setMovimentos} disabled={isLoading} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="prazos">
+              <ListaPrazos
+                dados={acompanhamento.dados}
+                carregando={acompanhamento.carregando}
+                salvando={acompanhamento.salvando}
+                onCumprir={acompanhamento.cumprir}
+              />
+            </TabsContent>
+            <TabsContent value="publicacoes">
+              <PublicacoesProcesso actionId={action.id} onPendentes={setPendentesPublicacao} />
+            </TabsContent>
+          </AbasProcesso>
 
-          <div className="flex items-center justify-end gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setLocation('/legal-actions')}
-              disabled={isLoading}
-              className="hover:bg-accent hover:text-accent-foreground"
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                'Salvar Alterações'
-              )}
-            </Button>
-          </div>
+          <NavegacaoAbas
+            aba={aba}
+            onChange={setAba}
+            desabilitado={isLoading}
+            podeAvancar={() => (aba === 'dados' ? tituloValido() : true)}
+            cancelar={
+              <Button type="button" variant="outline" onClick={() => setLocation('/legal-actions')} disabled={isLoading}>
+                Cancelar
+              </Button>
+            }
+            acaoFinal={
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  'Salvar alterações'
+                )}
+              </Button>
+            }
+          />
         </form>
       </div>
     </div>

@@ -16,7 +16,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TabsContent } from '@/components/ui/tabs';
 import {
   AlertCircle,
   Loader2,
@@ -48,11 +48,10 @@ import { AssuntosForm, AssuntoItem } from '@/components/AssuntosForm';
 import { PartesForm } from '@/components/PartesForm';
 import { MovementsForm } from '@/components/MovementsForm';
 import { toast } from 'sonner';
+import { AbasProcesso, AbaProcesso, ListaAbasProcesso, NavegacaoAbas } from './ficha/abas-processo';
 
 const CLIENT_PAGE_SIZE = 100;
 const USER_PAGE_SIZE = 200;
-const GATILHO_ABA =
-  'rounded-none border-b-2 border-transparent bg-transparent px-3 py-2 shadow-none data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none';
 
 type SelectableUser = Pick<UserResponse, 'id' | 'full_name' | 'email'>;
 
@@ -92,7 +91,7 @@ export default function ProcessoNovoPage() {
   const [showPartesModal, setShowPartesModal] = useState(false);
   const [pendingPartes, setPendingPartes] = useState<PendingClientCreation[]>([]);
   const [movimentos, setMovimentos] = useState<ProcessoMovimentoCreate[]>([]);
-  const [aba, setAba] = useState('dados');
+  const [aba, setAba] = useState<AbaProcesso>('dados');
   const [assuntos, setAssuntos] = useState<AssuntoItem[]>([]);
   const [partes, setPartes] = useState<ProcessoParteCreate[]>([]);
 
@@ -373,17 +372,40 @@ export default function ProcessoNovoPage() {
 
   const getUserLabel = (user: SelectableUser) => user.full_name || user.email;
 
+  const dadosValidos = () => {
+    if (!form.number || form.number.length < 3) {
+      toast.error('Número deve ter no mínimo 3 caracteres');
+      return false;
+    }
+    if (!form.title || form.title.length < 3) {
+      toast.error('Título deve ter no mínimo 3 caracteres');
+      return false;
+    }
+    const clientId = Number(form.client_id);
+    if (!clientId || Number.isNaN(clientId)) {
+      toast.error('Selecione um cliente');
+      return false;
+    }
+    const actionTypeId = Number(form.action_type_id);
+    if (!actionTypeId || Number.isNaN(actionTypeId)) {
+      toast.error('Selecione o tipo de ação');
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (aba !== 'publicacoes') return;
+    if (!dadosValidos()) {
+      setAba('dados');
+      return;
+    }
     setIsLoading(true);
 
     try {
-      if (!form.number || form.number.length < 3) throw new Error('Número deve ter no mínimo 3 caracteres');
-      if (!form.title || form.title.length < 3) throw new Error('Título deve ter no mínimo 3 caracteres');
       const clientId = Number(form.client_id);
-      if (!clientId || Number.isNaN(clientId)) throw new Error('Selecione um cliente');
       const actionTypeId = Number(form.action_type_id);
-      if (!actionTypeId || Number.isNaN(actionTypeId)) throw new Error('Selecione o tipo de ação');
 
       const payload: Parameters<typeof LegalActionService.createLegalAction>[0] = {
         number: form.number,
@@ -446,11 +468,8 @@ export default function ProcessoNovoPage() {
 
 
         <form onSubmit={handleSubmit} noValidate>
-          <Tabs value={aba} onValueChange={setAba}>
-            <TabsList className="mb-6 h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b bg-transparent p-0">
-              <TabsTrigger value="dados" className={GATILHO_ABA}>Dados</TabsTrigger>
-              <TabsTrigger value="andamentos" className={GATILHO_ABA}>Andamentos ({movimentos.length})</TabsTrigger>
-            </TabsList>
+          <AbasProcesso aba={aba} onChange={setAba}>
+            <ListaAbasProcesso complementos={{ andamentos: ` (${movimentos.length})` }} />
             <TabsContent value="dados">
           {/* ── Card 1: Auto-Complete DataJud ──────────────────────────────── */}
           <Card className="mb-6 border-primary/20 bg-primary/5">
@@ -879,32 +898,48 @@ export default function ProcessoNovoPage() {
                 </CardContent>
               </Card>
             </TabsContent>
-          </Tabs>
 
-          <div className="flex items-center justify-end gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setLocation('/legal-actions')}
-              disabled={isLoading}
-              className="hover:bg-accent hover:text-accent-foreground"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                'Criar Processo'
-              )}
-            </Button>
-          </div>
+            <TabsContent value="prazos">
+              <p className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+                Os prazos aparecem aqui depois que o processo for criado e o acompanhamento estiver ligado.
+              </p>
+            </TabsContent>
+
+            <TabsContent value="publicacoes">
+              <p className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+                As publicações aparecem aqui depois que o acompanhamento deste processo receber uma movimentação.
+              </p>
+            </TabsContent>
+          </AbasProcesso>
+
+          <NavegacaoAbas
+            aba={aba}
+            onChange={setAba}
+            desabilitado={isLoading}
+            podeAvancar={() => (aba === 'dados' ? dadosValidos() : true)}
+            cancelar={
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setLocation('/legal-actions')}
+                disabled={isLoading}
+              >
+                Cancelar
+              </Button>
+            }
+            acaoFinal={
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  'Criar processo'
+                )}
+              </Button>
+            }
+          />
         </form>
       </div>
 

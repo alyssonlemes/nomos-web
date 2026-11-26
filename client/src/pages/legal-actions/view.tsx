@@ -3,7 +3,7 @@ import { useLocation, useParams } from 'wouter';
 import { ArrowLeft, Edit, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TabsContent } from '@/components/ui/tabs';
 import {
   BotaoAcompanhar,
   ListaPrazos,
@@ -17,15 +17,13 @@ import { formatActionType, formatLegalStatus } from '@/utils/formats';
 import { AndamentosProcesso } from './ficha/andamentos-processo';
 import { DadosProcesso } from './ficha/dados-processo';
 import { PublicacoesProcesso } from './ficha/publicacoes-processo';
+import { AbasProcesso, AbaProcesso, ListaAbasProcesso, NavegacaoAbas } from './ficha/abas-processo';
 
 function rotuloTipo(action: LegalAction): string {
   if (action.action_type?.name) return action.action_type.name;
   if (action.action_type?.code) return formatActionType(action.action_type.code);
   return '—';
 }
-
-const GATILHO_ABA =
-  'rounded-none border-b-2 border-transparent bg-transparent px-3 py-2 shadow-none data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none';
 
 export default function ProcessoViewPage() {
   const [, setLocation] = useLocation();
@@ -38,6 +36,7 @@ export default function ProcessoViewPage() {
   const [statuses, setStatuses] = useState<LegalActionStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pendentesPublicacao, setPendentesPublicacao] = useState<number | null>(null);
+  const [aba, setAba] = useState<AbaProcesso>('dados');
 
   const loadAction = useCallback(async (silencioso = false) => {
     if (!idValido) return;
@@ -141,18 +140,12 @@ export default function ProcessoViewPage() {
             )}
           </div>
           {action && (
-            <div className="flex shrink-0 items-center gap-2">
-              <BotaoAcompanhar
-                dados={acompanhamento.dados}
-                carregando={acompanhamento.carregando}
-                salvando={acompanhamento.salvando}
-                onAlternar={acompanhamento.alternar}
-              />
-              <Button type="button" variant="outline" onClick={() => setLocation(`/legal-actions/${action.id}/editar`)} className="gap-2">
-                <Edit className="h-4 w-4" />
-                Editar
-              </Button>
-            </div>
+            <BotaoAcompanhar
+              dados={acompanhamento.dados}
+              carregando={acompanhamento.carregando}
+              salvando={acompanhamento.salvando}
+              onAlternar={acompanhamento.alternar}
+            />
           )}
         </div>
 
@@ -163,15 +156,15 @@ export default function ProcessoViewPage() {
         )}
 
         {!isLoading && action && (
-          <Tabs defaultValue="dados">
-            <TabsList className="mb-6 h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b bg-transparent p-0">
-              <TabsTrigger value="dados" className={GATILHO_ABA}>Dados</TabsTrigger>
-              <TabsTrigger value="andamentos" className={GATILHO_ABA}>Andamentos ({andamentos})</TabsTrigger>
-              <TabsTrigger value="prazos" className={GATILHO_ABA}>Prazos ({prazosAbertos})</TabsTrigger>
-              <TabsTrigger value="publicacoes" className={GATILHO_ABA}>
-                Publicações{pendentesPublicacao === null ? '' : ` (${pendentesPublicacao})`}
-              </TabsTrigger>
-            </TabsList>
+          <>
+          <AbasProcesso aba={aba} onChange={setAba}>
+            <ListaAbasProcesso
+              complementos={{
+                andamentos: ` (${andamentos})`,
+                prazos: ` (${prazosAbertos})`,
+                publicacoes: pendentesPublicacao === null ? '' : ` (${pendentesPublicacao})`,
+              }}
+            />
 
             <TabsContent value="dados">
               <DadosProcesso
@@ -195,7 +188,18 @@ export default function ProcessoViewPage() {
             <TabsContent value="publicacoes">
               <PublicacoesProcesso actionId={action.id} onPendentes={registrarPendentes} />
             </TabsContent>
-          </Tabs>
+          </AbasProcesso>
+          <NavegacaoAbas
+            aba={aba}
+            onChange={setAba}
+            acaoFinal={
+              <Button type="button" className="gap-2" onClick={() => setLocation(`/legal-actions/${action.id}/editar`)}>
+                <Edit className="h-4 w-4" />
+                Editar
+              </Button>
+            }
+          />
+          </>
         )}
       </div>
     </div>
