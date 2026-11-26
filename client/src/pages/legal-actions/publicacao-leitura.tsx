@@ -45,6 +45,7 @@ interface LeituraPublicacaoProps {
   onFechar: () => void;
   onAbrirProcesso: (legalActionId: number) => void;
   onTratar: (id: number) => void;
+  exibirAbrirProcesso?: boolean;
 }
 
 export function LeituraPublicacao({
@@ -54,6 +55,7 @@ export function LeituraPublicacao({
   onFechar,
   onAbrirProcesso,
   onTratar,
+  exibirAbrirProcesso = true,
 }: LeituraPublicacaoProps) {
   const prazo = item ? textoPrazoPublicacao(item) : null;
 
@@ -75,16 +77,18 @@ export function LeituraPublicacao({
           {prazo && <p className="text-sm text-muted-foreground">{prazo}</p>}
         </div>
         <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              if (!item) return;
-              onAbrirProcesso(item.legal_action_id);
-            }}
-          >
-            Abrir processo
-          </Button>
+          {exibirAbrirProcesso && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                if (!item) return;
+                onAbrirProcesso(item.legal_action_id);
+              }}
+            >
+              Abrir processo
+            </Button>
+          )}
           {podeTratar && item && !item.tratado_em && (
             <Button type="button" disabled={tratando} onClick={() => onTratar(item.id)}>
               {tratando ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Tratar'}

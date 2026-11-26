@@ -483,6 +483,7 @@ export class LegalActionService {
     skip = 0,
     limit = 10,
     search?: string,
+    legalActionId?: number,
   ): Promise<PublicacaoLista> {
     const params = new URLSearchParams({
       situacao,
@@ -490,6 +491,7 @@ export class LegalActionService {
       limit: String(limit),
     });
     if (search) params.set('search', search);
+    if (legalActionId) params.set('legal_action_id', String(legalActionId));
     const response = await AuthService.authenticatedFetch(
       `${API_BASE_URL}/api/v1/legal-actions/publicacoes?${params.toString()}`,
       { method: 'GET' }
