@@ -16,6 +16,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertCircle,
   Loader2,
@@ -43,12 +44,15 @@ import { ClientService, Client, CreateClientData } from '@/services/client.servi
 import { UserService, UserResponse } from '@/services/user.service';
 import { SelectField } from '../../components/ui/select-field';
 import { cn } from '@/lib/utils';
-import { AssuntoItem } from '@/components/AssuntosForm';
-import { ProcessoRelacionadosCards } from '@/components/ProcessoRelacionadosCards';
+import { AssuntosForm, AssuntoItem } from '@/components/AssuntosForm';
+import { PartesForm } from '@/components/PartesForm';
+import { MovementsForm } from '@/components/MovementsForm';
 import { toast } from 'sonner';
 
 const CLIENT_PAGE_SIZE = 100;
 const USER_PAGE_SIZE = 200;
+const GATILHO_ABA =
+  'rounded-none border-b-2 border-transparent bg-transparent px-3 py-2 shadow-none data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none';
 
 type SelectableUser = Pick<UserResponse, 'id' | 'full_name' | 'email'>;
 
@@ -88,6 +92,7 @@ export default function ProcessoNovoPage() {
   const [showPartesModal, setShowPartesModal] = useState(false);
   const [pendingPartes, setPendingPartes] = useState<PendingClientCreation[]>([]);
   const [movimentos, setMovimentos] = useState<ProcessoMovimentoCreate[]>([]);
+  const [aba, setAba] = useState('dados');
   const [assuntos, setAssuntos] = useState<AssuntoItem[]>([]);
   const [partes, setPartes] = useState<ProcessoParteCreate[]>([]);
 
@@ -414,6 +419,7 @@ export default function ProcessoNovoPage() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar processo';
       toast.error(errorMessage);
+      setAba('dados');
       setIsLoading(false);
     }
   };
@@ -439,7 +445,13 @@ export default function ProcessoNovoPage() {
         </div>
 
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
+          <Tabs value={aba} onValueChange={setAba}>
+            <TabsList className="mb-6 h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b bg-transparent p-0">
+              <TabsTrigger value="dados" className={GATILHO_ABA}>Dados</TabsTrigger>
+              <TabsTrigger value="andamentos" className={GATILHO_ABA}>Andamentos ({movimentos.length})</TabsTrigger>
+            </TabsList>
+            <TabsContent value="dados">
           {/* ── Card 1: Auto-Complete DataJud ──────────────────────────────── */}
           <Card className="mb-6 border-primary/20 bg-primary/5">
             <CardHeader className="pb-3">
@@ -818,15 +830,56 @@ export default function ProcessoNovoPage() {
             </CardContent>
           </Card>
 
-          <ProcessoRelacionadosCards
-            assuntos={assuntos}
-            onAssuntosChange={setAssuntos}
-            partes={partes}
-            onPartesChange={setPartes}
-            movimentos={movimentos}
-            onMovimentosChange={setMovimentos}
-            disabled={isLoading}
-          />
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-base">
+                Assuntos do processo
+                {assuntos.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 font-mono">{assuntos.length}</Badge>
+                )}
+              </CardTitle>
+              <CardDescription>Matérias do direito classificadas pelo CNJ</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AssuntosForm assuntos={assuntos} onChange={setAssuntos} disabled={isLoading} />
+            </CardContent>
+          </Card>
+
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-base">
+                Partes do processo
+                {partes.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 font-mono">{partes.length}</Badge>
+                )}
+              </CardTitle>
+              <CardDescription>Polos ativos, passivos e representantes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PartesForm partes={partes} onChange={setPartes} disabled={isLoading} />
+            </CardContent>
+          </Card>
+            </TabsContent>
+
+            <TabsContent value="andamentos">
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Andamentos
+                    {movimentos.length > 0 && (
+                      <Badge variant="secondary" className="ml-2 font-mono">{movimentos.length}</Badge>
+                    )}
+                  </CardTitle>
+                  <CardDescription>
+                    Movimentos que o DataJud devolveu, ou que você adiciona antes de salvar.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <MovementsForm movements={movimentos} onChange={setMovimentos} disabled={isLoading} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
 
           <div className="flex items-center justify-end gap-4">
             <Button
