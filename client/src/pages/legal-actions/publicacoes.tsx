@@ -1,79 +1,165 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
-import { Bell, Loader2 } from 'lucide-react';
+import { Check, Eye, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { LISTING_PAGE_SIZE } from '@/components/listing/DataListing';
+import { DataListing, Column, LISTING_PAGE_SIZE } from '@/components/listing/DataListing';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import {
   LegalActionService,
   PublicacaoIntegracao,
 } from '@/services/legal-action.service';
 import { temPermissao } from '@/lib/rbac';
+import {
+  formatarDataPublicacao,
+  LeituraPublicacao,
+  SeloSituacaoPublicacao,
+  textoPrazoPublicacao,
+} from './publicacao-leitura';
 
 type Situacao = 'pendente' | 'tratada' | 'todas';
 
-function formatarData(valor: string | null): string {
-  if (!valor) return '—';
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(valor.trim());
-  if (!match) return valor.slice(0, 10);
-  return `${match[3]}/${match[2]}/${match[1]}`;
+const FILTROS_SITUACAO: { value: Situacao; label: string }[] = [
+  { value: 'pendente', label: 'A tratar' },
+  { value: 'tratada', label: 'Tratadas' },
+  { value: 'todas', label: 'Todas' },
+];
+
+interface AcoesLista {
+  podeTratar: boolean;
+  tratandoId: number | null;
+  onAbrir: (id: number) => void;
+  onLer: (item: PublicacaoIntegracao) => void;
+  onTratar: (id: number) => void;
 }
 
-function textoPrazo(item: PublicacaoIntegracao): string | null {
-  if (item.prazo_status === 'cumprido') return 'Prazo cumprido';
-  if (item.prazo_status === 'aberto' && item.prazo_vencimento) {
-    const vencimento = formatarData(item.prazo_vencimento);
-    if (item.dias_prazo != null) {
-      return `Prazo de ${item.dias_prazo} dias, vencimento em ${vencimento}`;
-    }
-    return `Vencimento em ${vencimento}`;
-  }
-  if (item.prazo_status === 'conferir') return 'Confira o prazo no texto';
-  return null;
-}
-
-function paginasVisiveis(atual: number, total: number): number[] {
-  return Array.from({ length: Math.min(5, total) }, (_, index) => {
-    if (total <= 5) return index + 1;
-    if (atual <= 3) return index + 1;
-    if (atual >= total - 2) return total - 4 + index;
-    return atual - 2 + index;
-  });
+function colunasPublicacao(acoes: AcoesLista): Column<PublicacaoIntegracao>[] {
+  return [
+    {
+      id: 'processo',
+      header: 'Processo',
+      className: 'text-foreground',
+      sortValue: (row) => row.numero,
+      exportValue: (row) => row.numero,
+      cell: (row) => (
+        <div className="min-w-[160px]">
+          <p className="font-mono text-foreground">{row.numero || '—'}</p>
+          <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{row.titulo || '—'}</p>
+        </div>
+      ),
+    },
+    {
+      id: 'conteudo',
+      header: 'Publicação',
+      className: 'max-w-xl text-foreground',
+      sortValue: (row) => row.conteudo,
+      exportValue: (row) => row.conteudo,
+      cell: (row) => (
+        <button
+          type="button"
+          onClick={() => acoes.onLer(row)}
+          className="line-clamp-2 max-w-xl text-left hover:underline"
+        >
+          {row.conteudo}
+        </button>
+      ),
+    },
+    {
+      id: 'data',
+      header: 'Data',
+      className: 'whitespace-nowrap',
+      sortValue: (row) => row.data_movimentacao || '',
+      exportValue: (row) => formatarDataPublicacao(row.data_movimentacao),
+      cell: (row) => formatarDataPublicacao(row.data_movimentacao),
+    },
+    {
+      id: 'prazo',
+      header: 'Prazo',
+      sortValue: (row) => textoPrazoPublicacao(row) || '',
+      exportValue: (row) => textoPrazoPublicacao(row) || '',
+      cell: (row) => textoPrazoPublicacao(row) || '—',
+    },
+    {
+      id: 'situacao',
+      header: 'Situação',
+      sortValue: (row) => (row.tratado_em ? 'Tratada' : 'A tratar'),
+      exportValue: (row) => (row.tratado_em ? 'Tratada' : 'A tratar'),
+      cell: (row) => <SeloSituacaoPublicacao tratada={Boolean(row.tratado_em)} />,
+    },
+    {
+      id: 'actions',
+      header: 'Ações',
+      sortable: false,
+      hideable: false,
+      headerClassName: 'text-right',
+      className: 'text-right',
+      cell: (row) => (
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => acoes.onAbrir(row.legal_action_id)}
+            className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+            title="Abrir processo"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          {acoes.podeTratar && !row.tratado_em && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={acoes.tratandoId === row.id}
+              onClick={() => acoes.onTratar(row.id)}
+              className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+              title="Tratar"
+            >
+              {acoes.tratandoId === row.id ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4" />
+              )}
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
 }
 
 export default function PublicacoesPage() {
   const [, setLocation] = useLocation();
   const podeTratar = temPermissao('processos', 'editar');
   const [situacao, setSituacao] = useState<Situacao>('pendente');
+  const [busca, setBusca] = useState('');
   const [pagina, setPagina] = useState(1);
   const [itens, setItens] = useState<PublicacaoIntegracao[]>([]);
   const [total, setTotal] = useState(0);
   const [pendentes, setPendentes] = useState(0);
   const [carregando, setCarregando] = useState(true);
   const [tratandoId, setTratandoId] = useState<number | null>(null);
+  const [leitura, setLeitura] = useState<PublicacaoIntegracao | null>(null);
   const pedido = useRef(0);
-  const situacaoRef = useRef(situacao);
-  const paginaRef = useRef(pagina);
-  situacaoRef.current = situacao;
-  paginaRef.current = pagina;
+  const buscaDebounced = useDebouncedValue(busca, 300);
 
   const carregar = useCallback(async () => {
     const atual = ++pedido.current;
-    const situacaoAtual = situacaoRef.current;
-    const paginaAtual = paginaRef.current;
     try {
       setCarregando(true);
-      const skip = (paginaAtual - 1) * LISTING_PAGE_SIZE;
-      const dados = await LegalActionService.getPublicacoes(situacaoAtual, skip, LISTING_PAGE_SIZE);
+      const skip = (pagina - 1) * LISTING_PAGE_SIZE;
+      const dados = await LegalActionService.getPublicacoes(
+        situacao,
+        skip,
+        LISTING_PAGE_SIZE,
+        buscaDebounced || undefined,
+      );
       if (atual !== pedido.current) return;
       const maxPage = Math.max(1, Math.ceil(dados.total / LISTING_PAGE_SIZE));
-      if (paginaRef.current > maxPage) {
+      if (pagina > maxPage) {
         setPagina(maxPage);
         return;
       }
-      if (situacaoRef.current !== situacaoAtual || paginaRef.current !== paginaAtual) return;
       setItens(dados.publicacoes);
       setTotal(dados.total);
       setPendentes(dados.pendentes);
@@ -85,18 +171,18 @@ export default function PublicacoesPage() {
     } finally {
       if (atual === pedido.current) setCarregando(false);
     }
-  }, []);
+  }, [situacao, pagina, buscaDebounced]);
 
   useEffect(() => {
-    setItens([]);
     carregar();
-  }, [situacao, pagina, carregar]);
+  }, [carregar]);
 
   const tratar = async (id: number) => {
     setTratandoId(id);
     try {
-      await LegalActionService.tratarPublicacao(id);
+      const atualizado = await LegalActionService.tratarPublicacao(id);
       toast.success('Publicação tratada.');
+      setLeitura((atual) => (atual?.id === id ? atualizado : atual));
       await carregar();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao tratar a publicação');
@@ -105,141 +191,68 @@ export default function PublicacoesPage() {
     }
   };
 
-  const totalPaginas = Math.max(1, Math.ceil(total / LISTING_PAGE_SIZE));
-  const inicio = total === 0 ? 0 : (pagina - 1) * LISTING_PAGE_SIZE + 1;
-  const fim = Math.min(pagina * LISTING_PAGE_SIZE, total);
-
   return (
-    <div className="p-8 min-h-full">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Publicações</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Atualizações que chegaram do acompanhamento. {pendentes} a tratar.
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          {(
-            [
-              ['pendente', 'A tratar'],
-              ['tratada', 'Tratadas'],
-              ['todas', 'Todas'],
-            ] as const
-          ).map(([valor, rotulo]) => (
-            <Button
-              key={valor}
-              type="button"
-              variant={situacao === valor ? 'default' : 'outline'}
-              onClick={() => {
-                setSituacao(valor);
-                setPagina(1);
-              }}
-            >
-              {rotulo}
-            </Button>
-          ))}
-        </div>
-
-        {carregando && itens.length === 0 && (
-          <p className="text-sm text-muted-foreground flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Carregando publicações...
-          </p>
-        )}
-
-        {!carregando && itens.length === 0 && (
-          <Card>
-            <CardContent className="py-8 text-sm text-muted-foreground">
-              Nenhuma atualização nesta lista. Elas aparecem aqui quando o acompanhamento de um processo recebe uma movimentação nova.
-            </CardContent>
-          </Card>
-        )}
-
-        {itens.map((item) => {
-          const prazo = textoPrazo(item);
-          return (
-            <Card key={item.id}>
-              <CardContent className="py-5 space-y-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">{item.numero}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{item.titulo}</p>
-                  </div>
-                  <Badge variant="outline">{formatarData(item.data_movimentacao)}</Badge>
-                </div>
-                <p className="text-sm text-foreground whitespace-pre-wrap">{item.conteudo}</p>
-                {prazo && (
-                  <p className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Bell className="h-4 w-4" />
-                    {prazo}
-                  </p>
-                )}
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setLocation(`/legal-actions/${item.legal_action_id}`)}
-                  >
-                    Abrir processo
-                  </Button>
-                  {podeTratar && !item.tratado_em && (
-                    <Button type="button" disabled={tratandoId === item.id} onClick={() => tratar(item.id)}>
-                      {tratandoId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Tratar'}
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
+    <>
+      <DataListing
+        storageKey="publicacoes"
+        title="Publicações"
+        description={`Atualizações que chegaram do acompanhamento. ${pendentes} a tratar.`}
+        badge={
+          <span className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground">
+            {total} publicaç{total === 1 ? 'ão' : 'ões'}
+          </span>
+        }
+        searchPlaceholder="Buscar por número, processo ou texto..."
+        searchValue={busca}
+        onSearchChange={(valor) => {
+          setBusca(valor);
+          setPagina(1);
+        }}
+        filters={[
+          {
+            id: 'situacao',
+            value: situacao,
+            placeholder: 'Situação',
+            onChange: (valor) => {
+              setSituacao(valor as Situacao);
+              setPagina(1);
+            },
+            options: FILTROS_SITUACAO,
+          },
+        ]}
+        columns={colunasPublicacao({
+          podeTratar,
+          tratandoId,
+          onAbrir: (id) => setLocation(`/legal-actions/${id}`),
+          onLer: setLeitura,
+          onTratar: tratar,
         })}
+        data={itens}
+        isLoading={carregando}
+        emptyTitle="Nenhuma publicação encontrada"
+        emptyDescription={
+          busca || situacao !== 'pendente'
+            ? 'Tente outro termo ou filtro.'
+            : 'Elas aparecem aqui quando o acompanhamento de um processo recebe uma movimentação nova.'
+        }
+        pagination={{
+          page: pagina,
+          totalPages: Math.max(1, Math.ceil(total / LISTING_PAGE_SIZE)),
+          total,
+          pageSize: LISTING_PAGE_SIZE,
+          onPageChange: setPagina,
+        }}
+        exportFilename="publicacoes"
+      />
 
-        {total > LISTING_PAGE_SIZE && (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              Página {pagina} de {totalPaginas}
-              <span className="ml-2">
-                (Exibindo {inicio}-{fim} de {total})
-              </span>
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setPagina((atual) => atual - 1)}
-                disabled={pagina <= 1 || carregando}
-              >
-                Anterior
-              </Button>
-              <div className="flex items-center gap-1">
-                {paginasVisiveis(pagina, totalPaginas).map((numero) => (
-                  <Button
-                    key={numero}
-                    type="button"
-                    variant={pagina === numero ? 'default' : 'outline'}
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    disabled={carregando}
-                    onClick={() => setPagina(numero)}
-                  >
-                    {numero}
-                  </Button>
-                ))}
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setPagina((atual) => atual + 1)}
-                disabled={pagina >= totalPaginas || carregando}
-              >
-                Próxima
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+      <LeituraPublicacao
+        item={leitura}
+        podeTratar={podeTratar}
+        tratando={leitura !== null && tratandoId === leitura.id}
+        onFechar={() => setLeitura(null)}
+        onAbrirProcesso={(id) => setLocation(`/legal-actions/${id}`)}
+        onTratar={tratar}
+      />
+    </>
   );
 }
