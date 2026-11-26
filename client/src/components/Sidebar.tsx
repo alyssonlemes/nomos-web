@@ -81,6 +81,11 @@ export default function Sidebar() {
           href: "/legal-actions",
         },
         {
+          id: "publicacoes",
+          label: "Publicações",
+          href: "/legal-actions/publicacoes",
+        },
+        {
           id: "tipos-acoes",
           label: "Tipos de Ações",
           href: "/legal-action-types",

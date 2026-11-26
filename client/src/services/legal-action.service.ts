@@ -160,6 +160,25 @@ export interface PrazoProcesso {
   created_at: string;
 }
 
+export interface PublicacaoIntegracao {
+  id: number;
+  legal_action_id: number;
+  numero: string;
+  titulo: string;
+  conteudo: string;
+  data_movimentacao: string | null;
+  tratado_em: string | null;
+  prazo_status: string | null;
+  prazo_vencimento: string | null;
+  dias_prazo: number | null;
+}
+
+export interface PublicacaoLista {
+  total: number;
+  pendentes: number;
+  publicacoes: PublicacaoIntegracao[];
+}
+
 export interface MonitoramentoProcesso {
   ativo: boolean;
   status: string | null;
@@ -455,6 +474,39 @@ export class LegalActionService {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || error.message || 'Erro ao encerrar o acompanhamento');
+    }
+    return response.json();
+  }
+
+  static async getPublicacoes(
+    situacao: 'pendente' | 'tratada' | 'todas',
+    skip = 0,
+    limit = 10,
+  ): Promise<PublicacaoLista> {
+    const params = new URLSearchParams({
+      situacao,
+      skip: String(skip),
+      limit: String(limit),
+    });
+    const response = await AuthService.authenticatedFetch(
+      `${API_BASE_URL}/api/v1/legal-actions/publicacoes?${params.toString()}`,
+      { method: 'GET' }
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || error.message || 'Erro ao carregar publicações');
+    }
+    return response.json();
+  }
+
+  static async tratarPublicacao(id: number): Promise<PublicacaoIntegracao> {
+    const response = await AuthService.authenticatedFetch(
+      `${API_BASE_URL}/api/v1/legal-actions/publicacoes/${id}/tratar`,
+      { method: 'PATCH' }
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || error.message || 'Erro ao tratar a publicação');
     }
     return response.json();
   }

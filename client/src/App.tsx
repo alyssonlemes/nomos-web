@@ -16,6 +16,7 @@ import Processos from "./pages/legal-actions";
 import ProcessosNew from "./pages/legal-actions/new";
 import ProcessosEdit from "./pages/legal-actions/edit";
 import ProcessosView from "./pages/legal-actions/view";
+import Publicacoes from "./pages/legal-actions/publicacoes";
 import LegalActionTypes from "./pages/legal-action-types";
 import LegalActionTypesNew from "./pages/legal-action-types/new";
 import LegalActionTypesEdit from "./pages/legal-action-types/edit";
@@ -140,6 +141,13 @@ function Router() {
         <ProtectedRoute modulo="processos">
           <Layout>
             <Processos />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/legal-actions/publicacoes">
+        <ProtectedRoute modulo="processos">
+          <Layout>
+            <Publicacoes />
           </Layout>
         </ProtectedRoute>
       </Route>
